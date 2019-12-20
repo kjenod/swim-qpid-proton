@@ -36,11 +36,11 @@ from typing import Optional, List, Any, Dict, Callable, Tuple
 import proton
 from proton.handlers import MessagingHandler
 
-from pubsub.utils import truncate_message
-from swim_pubsub import ConfigDict
-from swim_pubsub.broker_handlers.connectors import TLSConnector, SASLConnector, Connector
-
 __author__ = "EUROCONTROL (SWIM)"
+
+from swim_proton import ConfigDict
+from swim_proton.connectors import Connector, TLSConnector, SASLConnector
+from swim_proton.utils import truncate_message
 
 _logger = logging.getLogger(__name__)
 

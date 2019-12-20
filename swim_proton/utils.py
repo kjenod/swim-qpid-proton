@@ -28,11 +28,9 @@ http://opensource.org/licenses/BSD-3-Clause
 Details on EUROCONTROL: http://www.eurocontrol.int
 """
 import logging
-from typing import Union, Optional
-import yaml
+from typing import Optional
 from proton import SSLDomain, SSLUnavailable
 
-from swim_pubsub import ConfigDict
 
 __author__ = "EUROCONTROL (SWIM)"
 

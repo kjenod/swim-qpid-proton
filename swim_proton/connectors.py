@@ -33,7 +33,7 @@ __author__ = "EUROCONTROL (SWIM)"
 import proton
 from proton.reactor import Container
 
-from swim_pubsub import utils
+from swim_proton import utils
 
 
 class Connector:

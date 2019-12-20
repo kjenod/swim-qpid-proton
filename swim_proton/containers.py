@@ -32,10 +32,11 @@ from typing import Optional
 
 from proton.reactor import Container
 
-from pubsub.messaging_handlers import PubSubMessagingHandler
-from swim_pubsub import ConfigDict
 
 __author__ = "EUROCONTROL (SWIM)"
+
+from swim_proton import ConfigDict
+from swim_proton.messaging_handlers import PubSubMessagingHandler
 
 
 class PubSubContainer:
