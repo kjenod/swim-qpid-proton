@@ -1,0 +1,8 @@
+name: swim-qpid-proton
+dependencies:
+  - python
+  - pytest
+  - pytest-cov
+  - pyyaml
+  - pip:
+    - python-qpid_proton
