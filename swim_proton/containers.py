@@ -36,7 +36,7 @@ from proton.reactor import Container
 __author__ = "EUROCONTROL (SWIM)"
 
 from swim_proton import ConfigDict
-from swim_proton.messaging_handlers import PubSubMessagingHandler
+from swim_proton.messaging_handlers import PubSubMessagingHandler, Producer, Consumer
 
 
 class PubSubContainer:
@@ -84,7 +84,37 @@ class PubSubContainer:
         self._container.run()
 
     @classmethod
-    def create_from_config(cls, config: ConfigDict, messaging_handler_class: Type[PubSubMessagingHandler]):
+    def _create_from_config(cls, config: ConfigDict, messaging_handler_class: Type[PubSubMessagingHandler]):
         messaging_handler = messaging_handler_class.create_from_config(config)
 
         return cls(messaging_handler=messaging_handler)
+
+
+class ProducerContainer(PubSubContainer):
+
+    def __init__(self, messaging_handler: Producer):
+        super().__init__(messaging_handler)
+
+        # alias
+        self.producer = self.messaging_handler
+
+    @classmethod
+    def create_from_config(cls,
+                           config: ConfigDict,
+                           messaging_handler_class: Type[PubSubMessagingHandler] = Producer):
+        return cls._create_from_config(config, messaging_handler_class)
+
+
+class ConsumerContainer(PubSubContainer):
+
+    def __init__(self, messaging_handler: Consumer):
+        super().__init__(messaging_handler)
+
+        # alias
+        self.consumer = self.messaging_handler
+
+    @classmethod
+    def create_from_config(cls,
+                           config: ConfigDict,
+                           messaging_handler_class: Type[PubSubMessagingHandler] = Consumer):
+        return cls._create_from_config(config, messaging_handler_class)
