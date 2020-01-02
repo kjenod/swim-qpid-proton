@@ -200,7 +200,62 @@ class Producer(PubSubMessagingHandler):
         for timer_task in self.message_producer_timer_tasks:
             self._schedule_timer_task(timer_task)
 
-    def send_message(self, message: proton.Message, subject: str) -> None:
+    def add_message_producer(self, id: str, message_producer: Callable, interval_in_sec: Optional[int] = None) \
+            -> None:
+
+        if id in self.message_producers:
+            raise ValueError(f"Message producer with id {id} already exists")
+
+        self.message_producers[id] = message_producer
+
+        if interval_in_sec is not None:
+            message_producer_timer_task = self._make_message_producer_timer_task(id, interval_in_sec)
+            if self.is_started():
+                self._schedule_timer_task(message_producer_timer_task)
+            else:
+                self.message_producer_timer_tasks.append(message_producer_timer_task)
+
+    def trigger_message_producer(self, message_producer_id: str, context: Optional[Any] = None) -> None:
+        """
+        Generates a message via the message_producer and sends it in the broker.
+
+        :param message_producer_id: 
+        :param context:
+        """
+        if message_producer_id not in self.message_producers:
+            raise ValueError(f"Invalid message producer id: {message_producer_id}")
+
+        message_producer = self.message_producers[message_producer_id]
+        try:
+            message = message_producer(context=context)
+        except MessageProducerError as e:
+            _logger.error(f"Error while producing message for producer `{message_producer_id}`: {str(e)}")
+            return
+
+        _logger.info(f"Sending message for producer `{message_producer_id}`")
+        self._send_message(message=message, subject=message_producer_id)
+
+    def _make_message_producer_timer_task(self, message_producer_id: str, interval_in_sec: int) -> TimerTask:
+        """
+
+        :param message_producer_id:
+        :param interval_in_sec:
+        :return:
+        """
+        task = partial(self.trigger_message_producer, message_producer_id=message_producer_id)
+
+        result = TimerTask(task=task, interval_in_sec=interval_in_sec)
+
+        return result
+
+    def _schedule_timer_task(self, timer_task: TimerTask) -> None:
+        """
+
+        :param timer_task:
+        """
+        self.container.schedule(timer_task.interval_in_sec, timer_task)
+
+    def _send_message(self, message: proton.Message, subject: str) -> None:
         """
         Sends the provided message via the broker. The subject will serve as a routing key in the broker. Typically it
         should be the respective message_producer name.
@@ -215,61 +270,6 @@ class Producer(PubSubMessagingHandler):
             _logger.info(truncate_message(message=f"Message sent: {message}", max_length=100))
         else:
             _logger.info(truncate_message(message=f"No credit to send message {message}", max_length=100))
-
-    def add_message_producer(self, name: str, message_producer: Callable, interval_in_sec: Optional[int] = None) \
-            -> None:
-
-        if name in self.message_producers:
-            raise ValueError(f"Message produce with name {name} already exists")
-
-        self.message_producers[name] = message_producer
-
-        if interval_in_sec is not None:
-            message_producer_timer_task = self._make_message_producer_timer_task(name, interval_in_sec)
-            if self.is_started():
-                self._schedule_timer_task(message_producer_timer_task)
-            else:
-                self.message_producer_timer_tasks.append(message_producer_timer_task)
-
-    def _make_message_producer_timer_task(self, message_producer_name: str, interval_in_sec: int) -> TimerTask:
-        """
-
-        :param message_producer_name:
-        :param interval_in_sec:
-        :return:
-        """
-        task = partial(self.trigger_message, message_producer_name=message_producer_name)
-
-        result = TimerTask(task=task, interval_in_sec=interval_in_sec)
-
-        return result
-
-    def _schedule_timer_task(self, timer_task: TimerTask) -> None:
-        """
-
-        :param timer_task:
-        """
-        self.container.schedule(timer_task.interval_in_sec, timer_task)
-
-    def trigger_message(self, message_producer_name: str, context: Optional[Any] = None) -> None:
-        """
-        Generates a message via the message_producer and sends it in the broker.
-
-        :param message_producer_name:
-        :param context:
-        """
-        if message_producer_name not in self.message_producers:
-            raise ValueError(f"Invalid message producer name: {message_producer_name}")
-
-        message_producer = self.message_producers[message_producer_name]
-        try:
-            message = message_producer(context=context)
-        except MessageProducerError as e:
-            _logger.error(f"Error while producing `{message_producer_name}` message: {str(e)}")
-            return
-
-        _logger.info(f"Sending `{message_producer_name}` message")
-        self.send_message(message=message, subject=message_producer_name)
 
 
 class Consumer(PubSubMessagingHandler):

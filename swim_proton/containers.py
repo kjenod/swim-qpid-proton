@@ -28,7 +28,7 @@ http://opensource.org/licenses/BSD-3-Clause
 Details on EUROCONTROL: http://www.eurocontrol.int
 """
 import threading
-from typing import Optional
+from typing import Optional, Type
 
 from proton.reactor import Container
 
@@ -82,3 +82,9 @@ class PubSubContainer:
         """
         self._container = Container(self.messaging_handler)
         self._container.run()
+
+    @classmethod
+    def create_from_config(cls, config: ConfigDict, messaging_handler_class: Type[PubSubMessagingHandler]):
+        messaging_handler = messaging_handler_class.create_from_config(config)
+
+        return cls(messaging_handler=messaging_handler)
