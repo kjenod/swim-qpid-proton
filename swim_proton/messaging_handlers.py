@@ -219,7 +219,7 @@ class Producer(PubSubMessagingHandler):
         """
         Generates a message via the message_producer and sends it in the broker.
 
-        :param message_producer_id: 
+        :param message_producer_id:
         :param context:
         """
         if message_producer_id not in self.message_producers:
@@ -232,7 +232,7 @@ class Producer(PubSubMessagingHandler):
             _logger.error(f"Error while producing message for producer `{message_producer_id}`: {str(e)}")
             return
 
-        _logger.info(f"Sending message for producer `{message_producer_id}`")
+        _logger.info(f"Sending message for producer `{message_producer_id}`: {message}")
         self._send_message(message=message, subject=message_producer_id)
 
     def _make_message_producer_timer_task(self, message_producer_id: str, interval_in_sec: int) -> TimerTask:
@@ -267,9 +267,9 @@ class Producer(PubSubMessagingHandler):
 
         if self._sender and self._sender.credit:
             self._sender.send(message)
-            _logger.info(truncate_message(message=f"Message sent: {message}", max_length=100))
+            _logger.info("Message sent")
         else:
-            _logger.info(truncate_message(message=f"No credit to send message {message}", max_length=100))
+            _logger.info("No credit to send message {message}")
 
 
 class Consumer(PubSubMessagingHandler):

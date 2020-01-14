@@ -86,8 +86,10 @@ class PubSubContainer:
     @classmethod
     def _create_from_config(cls, config: ConfigDict, messaging_handler_class: Type[PubSubMessagingHandler]):
         messaging_handler = messaging_handler_class.create_from_config(config)
+        container = cls(messaging_handler=messaging_handler)
+        container.config = config
 
-        return cls(messaging_handler=messaging_handler)
+        return container
 
 
 class ProducerContainer(PubSubContainer):
