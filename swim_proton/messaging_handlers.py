@@ -30,6 +30,7 @@ Details on EUROCONTROL: http://www.eurocontrol.int
 """
 
 import logging
+import traceback
 from functools import partial
 from typing import Optional, List, Any, Dict, Callable, Tuple
 
@@ -266,8 +267,15 @@ class Producer(PubSubMessagingHandler):
         message.subject = subject
 
         if self._sender and self._sender.credit:
-            self._sender.send(message)
-            _logger.info("Message sent")
+            try:
+                _logger.info(message)
+                _logger.info(message.body)
+                _logger.info(message.content_type)
+                self._sender.send(message)
+                _logger.info("Message sent")
+            except Exception as e:
+                traceback.print_exc()
+                _logger.error(f"Error while sending message: {str(e)}")
         else:
             _logger.info("No credit to send message {message}")
 
