@@ -58,6 +58,7 @@ def create_ssl_domain(cert_db: str,
                       mode: int = SSLDomain.VERIFY_PEER) -> Optional[SSLDomain]:
     """
     Creates an SSLDomain to be passed upon connecting to the broker
+
     :param cert_db: path to certificate DB
     :param cert_file: path to client certificate
     :param cert_key: path to client key

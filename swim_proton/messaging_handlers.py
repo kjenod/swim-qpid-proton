@@ -41,17 +41,8 @@ __author__ = "EUROCONTROL (SWIM)"
 
 from swim_proton import ConfigDict
 from swim_proton.connectors import Connector, TLSConnector, SASLConnector
-from swim_proton.utils import truncate_message
 
 _logger = logging.getLogger(__name__)
-
-
-class MessageProducerError(Exception):
-    pass
-
-
-class MessageConsumerError(Exception):
-    pass
 
 
 class TimerTask(MessagingHandler):
@@ -110,12 +101,6 @@ class PubSubMessagingHandler(MessagingHandler):
         self.container = event.container
         self.connection = self.connector.connect(self.container)
         _logger.info(f'Connected to broker @ {self.connector.url}')
-
-    def create_sender_link(self, endpoint: str) -> proton.Sender:
-        return self.container.create_sender(self.connection, endpoint)
-
-    def create_receiver_link(self, endpoint: str) -> proton.Receiver:
-        return self.container.create_receiver(self.connection, endpoint)
 
     @classmethod
     def create(cls,
@@ -181,6 +166,9 @@ class Producer(PubSubMessagingHandler):
         self.message_producers: Dict[str, Callable] = {}
         self.message_producer_timer_tasks: List[TimerTask] = []
 
+    def _create_sender_link(self, endpoint: str) -> proton.Sender:
+        return self.container.create_sender(self.connection, endpoint)
+
     def on_start(self, event: proton.Event) -> None:
         """
         Is triggered upon running the `proton.Container` that uses this handler. If it has ScheduledMessageProducers
@@ -192,8 +180,8 @@ class Producer(PubSubMessagingHandler):
         super().on_start(event)
 
         try:
-            self._sender = self.create_sender_link(self.endpoint)
-            _logger.debug(f"Created sender {self._sender}")
+            self._sender = self._create_sender_link(self.endpoint)
+            _logger.debug(f"Created sender: {self._sender}")
         except Exception as e:
             _logger.error(f'Error while creating sender: {str(e)}')
             return
@@ -201,11 +189,16 @@ class Producer(PubSubMessagingHandler):
         for timer_task in self.message_producer_timer_tasks:
             self._schedule_timer_task(timer_task)
 
-    def add_message_producer(self, id: str, message_producer: Callable, interval_in_sec: Optional[int] = None) \
-            -> None:
+    def add_message_producer(self, id: str, message_producer: Callable, interval_in_sec: Optional[int] = None) -> None:
+        """
+        Registers a new message_producer (callback)
 
+        :param id: a unique id/name
+        :param message_producer: the callback that will produce the message to be senf in the broker
+        :param interval_in_sec: if not None it will schedule the message_producers execution
+        """
         if id in self.message_producers:
-            raise ValueError(f"Message producer with id {id} already exists")
+            raise ValueError(f"Message producer with id '{id}' already exists")
 
         self.message_producers[id] = message_producer
 
@@ -229,7 +222,7 @@ class Producer(PubSubMessagingHandler):
         message_producer = self.message_producers[message_producer_id]
         try:
             message = message_producer(context=context)
-        except MessageProducerError as e:
+        except Exception as e:
             _logger.error(f"Error while producing message for producer `{message_producer_id}`: {str(e)}")
             return
 
@@ -264,20 +257,19 @@ class Producer(PubSubMessagingHandler):
         :param message:
         :param subject:
         """
+        # the subject under which the message will be routed in the broker
+        # typically it is the message_producer_id or the topic name more generally
         message.subject = subject
 
         if self._sender and self._sender.credit:
             try:
-                _logger.info(message)
-                _logger.info(message.body)
-                _logger.info(message.content_type)
                 self._sender.send(message)
-                _logger.info("Message sent")
+                _logger.info(f"Message sent: {message}")
             except Exception as e:
                 traceback.print_exc()
                 _logger.error(f"Error while sending message: {str(e)}")
         else:
-            _logger.info("No credit to send message {message}")
+            _logger.info(f"No credit to send message {message}")
 
 
 class Consumer(PubSubMessagingHandler):
@@ -294,6 +286,9 @@ class Consumer(PubSubMessagingHandler):
         # keep track of all the queues by receiver
         self.message_consumers_per_receiver: Dict[proton.Receiver, Tuple[str, Callable]] = {}
 
+    def _create_receiver_link(self, endpoint: str) -> proton.Receiver:
+        return self.container.create_receiver(self.connection, endpoint)
+
     def _get_receiver_by_queue(self, queue: str) -> proton.Receiver:
         """
         Find the receiver that corresponds to the given message_consumer.
@@ -306,12 +301,12 @@ class Consumer(PubSubMessagingHandler):
 
     def attach_message_consumer(self, queue: str, message_consumer: Callable) -> None:
         """
-        Create a new `proton.Receiver` and assign the message consumer to it
+        Creates a new `proton.Receiver` and assigns the message consumer to it
 
         :param queue:
         :param message_consumer: consumes the messages coming from its assigned queue in the broker.
         """
-        receiver = self.create_receiver_link(queue)
+        receiver = self._create_receiver_link(queue)
 
         self.message_consumers_per_receiver[receiver] = (queue, message_consumer)
 
@@ -319,7 +314,7 @@ class Consumer(PubSubMessagingHandler):
 
     def detach_message_consumer(self, queue: str) -> None:
         """
-        Remove the receiver that corresponds to the given queue.
+        Removes the receiver that corresponds to the given queue.
 
         :param queue:
         """
@@ -346,5 +341,5 @@ class Consumer(PubSubMessagingHandler):
 
         try:
             message_consumer(event.message)
-        except MessageConsumerError as e:
+        except Exception as e:
             _logger.error(f"Error while processing message {event.message} on queue {queue}: {str(e)}")

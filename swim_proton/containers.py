@@ -95,9 +95,14 @@ class PubSubContainer:
 class ProducerContainer(PubSubContainer):
 
     def __init__(self, messaging_handler: Producer):
+        """
+        Container to be using the Producer messaging handler out of the box
+
+        :param messaging_handler:
+        """
         super().__init__(messaging_handler)
 
-        # alias
+        """ alias of messaging_handler """
         self.producer = self.messaging_handler
 
     @classmethod
@@ -110,9 +115,14 @@ class ProducerContainer(PubSubContainer):
 class ConsumerContainer(PubSubContainer):
 
     def __init__(self, messaging_handler: Consumer):
+        """
+        Container to be using the Consumer messaging handler out of the box
+
+        :param messaging_handler:
+        """
         super().__init__(messaging_handler)
 
-        # alias
+        """ alias of messaging_handler """
         self.consumer = self.messaging_handler
 
     @classmethod
