@@ -125,15 +125,10 @@ class PubSubMessagingHandler(MessagingHandler):
         :param allowed_mechs:
         :return:
         """
-        if cert_db and cert_file and cert_key:
-            # provide non empty password in case none is provided
-            # somehow an empty password will lead to a failed connection even for non-password
-            # protected certificates
-            cert_password = cert_password or ' '
-
-            connector = TLSConnector(host, cert_db, cert_file, cert_key, cert_password)
+        if cert_file and cert_key:
+            connector = TLSConnector(host, cert_file, cert_key, cert_db, cert_password)
         elif cert_db and sasl_user and sasl_password:
-            connector = SASLConnector(host, cert_db, sasl_user, sasl_password, allowed_mechs)
+            connector = SASLConnector(host, sasl_user, sasl_password, cert_db, allowed_mechs)
         else:
             connector = Connector(host)
 

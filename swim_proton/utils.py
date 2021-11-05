@@ -51,11 +51,10 @@ def _get_ssl_domain(mode: int) -> Optional[SSLDomain]:
         return None
 
 
-def create_ssl_domain(cert_db: str,
-                      cert_file: Optional[str] = None,
+def create_ssl_domain(cert_file: Optional[str] = None,
                       cert_key: Optional[str] = None,
-                      cert_password: Optional[str] = None,
-                      mode: int = SSLDomain.VERIFY_PEER) -> Optional[SSLDomain]:
+                      cert_db: Optional[str] = None,
+                      cert_password: Optional[str] = None) -> Optional[SSLDomain]:
     """
     Creates an SSLDomain to be passed upon connecting to the broker
 
@@ -63,17 +62,24 @@ def create_ssl_domain(cert_db: str,
     :param cert_file: path to client certificate
     :param cert_key: path to client key
     :param cert_password: password of the client
-    :param mode: one of MODE_CLIENT, MODE_SERVER, VERIFY_PEER, VERIFY_PEER_NAME, ANONYMOUS_PEER
     :return:
     """
+
+    mode = SSLDomain.VERIFY_PEER if cert_db else SSLDomain.ANONYMOUS_PEER
+
     ssl_domain = _get_ssl_domain(mode)
 
     if ssl_domain is None:
         return None
 
-    ssl_domain.set_trusted_ca_db(cert_db)
+    if cert_db:
+        ssl_domain.set_trusted_ca_db(cert_db)
 
-    if cert_file and cert_key and cert_password:
+    if cert_file and cert_key:
+        # provide non empty password in case none is provided
+        # somehow an empty password will lead to a failed connection even for non-password
+        # protected certificates
+        cert_password = cert_password or ' '
         ssl_domain.set_credentials(cert_file, cert_key, cert_password)
 
     return ssl_domain

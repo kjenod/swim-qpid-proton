@@ -48,7 +48,13 @@ class Connector:
             raise ValueError('no host was provided')
 
         self.host = host
-        self.url = f"{self.protocol}://{self.host}"
+
+    @property
+    def url(self):
+        if self.host.startswith('amqp'):
+            return self.host
+
+        return f"{self.protocol}://{self.host}"
 
     def connect(self, container: Container) -> proton.Connection:
         return container.connect(self.url)
@@ -57,7 +63,8 @@ class Connector:
 class TLSConnector(Connector):
     protocol = 'amqps'
 
-    def __init__(self, host: str, cert_db: str, cert_file: str, cert_key: str, cert_password: str) -> None:
+    def __init__(self, host: str, cert_db: str, cert_file: str, cert_key: str, cert_password: str) \
+            -> None:
         """
         Handles the connection to a broker via the TSL layer
         :param host:
@@ -77,7 +84,7 @@ class TLSConnector(Connector):
 class SASLConnector(Connector):
     protocol = 'amqps'
 
-    def __init__(self, host, cert_db: str, user: str, password: str, allowed_mechs: str) -> None:
+    def __init__(self, host, user: str, password: str, cert_db: str, allowed_mechs: str) -> None:
         """
         Handles the connection to a broker via the SASL layer
 
