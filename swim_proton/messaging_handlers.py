@@ -77,7 +77,8 @@ class PubSubMessagingHandler(MessagingHandler):
 
     def __init__(self, connector: Connector) -> None:
         """
-        Base class acting a MessagingHandler to a `proton.Container`. Any custom handler should inherit from this class.
+        Base class acting a MessagingHandler to a `proton.Container`. Any custom handler should
+        inherit from this class.
 
         :param connector: takes care of the connection .i.e TSL, SASL etc
         """
@@ -93,8 +94,8 @@ class PubSubMessagingHandler(MessagingHandler):
 
     def on_start(self, event: proton.Event):
         """
-        Is triggered upon running the `proton.Container` that uses this handler. It creates a connection to the broker
-        and can be overridden for further startup functionality.
+        Is triggered upon running the `proton.Container` that uses this handler. It creates a
+        connection to the broker and can be overridden for further startup functionality.
 
         :param event:
         """
@@ -126,7 +127,8 @@ class PubSubMessagingHandler(MessagingHandler):
         """
         if cert_db and cert_file and cert_key:
             # provide non empty password in case none is provided
-            # somehow an empty password will lead to a failed connection even for non-password protected certificates
+            # somehow an empty password will lead to a failed connection even for non-password
+            # protected certificates
             cert_password = cert_password or ' '
 
             connector = TLSConnector(host, cert_db, cert_file, cert_key, cert_password)
@@ -153,9 +155,9 @@ class Producer(PubSubMessagingHandler):
 
     def __init__(self, connector: Connector) -> None:
         """
-        An implementation of a broker handler that is supposed to act as a publisher. It keeps a list of message
-        producers which will generate respective messages which will be routed in the broker via a `proton.Sender`
-        instance
+        An implementation of a broker handler that is supposed to act as a publisher. It keeps a
+        list of message producers which will generate respective messages which will be routed in
+        the broker via a `proton.Sender` instance
 
         :param connector: takes care of the connection .i.e TSL, SASL etc
         """
@@ -171,8 +173,9 @@ class Producer(PubSubMessagingHandler):
 
     def on_start(self, event: proton.Event) -> None:
         """
-        Is triggered upon running the `proton.Container` that uses this handler. If it has ScheduledMessageProducers
-        items in its list they will be initialized and scheduled accordingly.
+        Is triggered upon running the `proton.Container` that uses this handler.
+        If it has ScheduledMessageProducers items in its list they will be initialized and
+        scheduled accordingly.
 
         :param event:
         """
@@ -189,7 +192,10 @@ class Producer(PubSubMessagingHandler):
         for timer_task in self.message_producer_timer_tasks:
             self._schedule_timer_task(timer_task)
 
-    def add_message_producer(self, id: str, message_producer: Callable, interval_in_sec: Optional[int] = None) -> None:
+    def add_message_producer(self,
+                             id: str,
+                             message_producer: Callable,
+                             interval_in_sec: Optional[int] = None) -> None:
         """
         Registers a new message_producer (callback)
 
@@ -203,13 +209,15 @@ class Producer(PubSubMessagingHandler):
         self.message_producers[id] = message_producer
 
         if interval_in_sec is not None:
-            message_producer_timer_task = self._make_message_producer_timer_task(id, interval_in_sec)
+            message_producer_timer_task = self._make_message_producer_timer_task(id,
+                                                                                 interval_in_sec)
             if self.is_started():
                 self._schedule_timer_task(message_producer_timer_task)
             else:
                 self.message_producer_timer_tasks.append(message_producer_timer_task)
 
-    def trigger_message_producer(self, message_producer_id: str, context: Optional[Any] = None) -> None:
+    def trigger_message_producer(
+            self, message_producer_id: str, context: Optional[Any] = None) -> None:
         """
         Generates a message via the message_producer and sends it in the broker.
 
@@ -223,13 +231,15 @@ class Producer(PubSubMessagingHandler):
         try:
             message = message_producer(context=context)
         except Exception as e:
-            _logger.error(f"Error while producing message for producer `{message_producer_id}`: {str(e)}")
+            _logger.error(
+                f"Error while producing message for producer `{message_producer_id}`: {str(e)}")
             return
 
         _logger.info(f"Sending message for producer `{message_producer_id}`: {message}")
         self._send_message(message=message, subject=message_producer_id)
 
-    def _make_message_producer_timer_task(self, message_producer_id: str, interval_in_sec: int) -> TimerTask:
+    def _make_message_producer_timer_task(
+            self, message_producer_id: str, interval_in_sec: int) -> TimerTask:
         """
 
         :param message_producer_id:
@@ -251,8 +261,8 @@ class Producer(PubSubMessagingHandler):
 
     def _send_message(self, message: proton.Message, subject: str) -> None:
         """
-        Sends the provided message via the broker. The subject will serve as a routing key in the broker. Typically it
-        should be the respective message_producer name.
+        Sends the provided message via the broker. The subject will serve as a routing key in the
+        broker. Typically it should be the respective message_producer name.
 
         :param message:
         :param subject:
@@ -276,41 +286,59 @@ class Consumer(PubSubMessagingHandler):
 
     def __init__(self, connector: Connector) -> None:
         """
-        An implementation of a broker client that is supposed to act as subscriber. It subscribes to queues of the
-        broker by creating instances of `proton.Receiver` for each one of them.
+        An implementation of a broker client that is supposed to act as subscriber.
+        It subscribes to queues of the broker by creating instances of `proton.Receiver`
+        for each one of them.
 
         :param connector: takes care of the connection .i.e TSL, SASL etc
         """
         PubSubMessagingHandler.__init__(self, connector)
 
-        # keep track of all the queues by receiver
-        self.message_consumers_per_receiver: Dict[proton.Receiver, Tuple[str, Callable]] = {}
+        # keeps a dict of queues and their receiver/message_consumer
+        self.queues_registry: Dict[str, Tuple[Optional[proton.Receiver], Callable]] = {}
 
     def _create_receiver_link(self, endpoint: str) -> proton.Receiver:
         return self.container.create_receiver(self.connection, endpoint)
 
-    def _get_receiver_by_queue(self, queue: str) -> proton.Receiver:
+    def _get_queue_reg_by_receiver(self, receiver: proton.Receiver) -> Tuple[str, Callable]:
         """
-        Find the receiver that corresponds to the given message_consumer.
-        :param queue:
+        Find the queue and message_consumer that corresponds to the given receiver.
+        :param receiver:
         :return:
         """
-        for receiver, (receiver_queue, _) in self.message_consumers_per_receiver.items():
-            if queue == receiver_queue:
-                return receiver
+        for queue, (registered_receiver, message_consumer) in self.queues_registry.items():
+            if receiver == registered_receiver:
+                return queue, message_consumer
+
+    def on_start(self, event: proton.Event) -> None:
+        """
+        Is triggered upon running the `proton.Container` that uses this handler.
+        It checks if there are queues without a receiver attached to them and creates them
+
+        :param event:
+        """
+        # call the parent event handler first to take care of the connection with the broker
+        super().on_start(event)
+
+        for queue, (receiver, message_consumer) in self.queues_registry.items():
+            if receiver is None:
+                receiver = self._create_receiver_link(queue)
+                self.queues_registry[queue] = (receiver, message_consumer)
+                _logger.debug(f"Created receiver {receiver} on queue {queue}")
 
     def attach_message_consumer(self, queue: str, message_consumer: Callable) -> None:
         """
         Creates a new `proton.Receiver` and assigns the message consumer to it
 
         :param queue:
-        :param message_consumer: consumes the messages coming from its assigned queue in the broker.
+        :param message_consumer: consumes the messages coming from its assigned queue in the broker
         """
-        receiver = self._create_receiver_link(queue)
+        self.queues_registry[queue] = (None, message_consumer)
 
-        self.message_consumers_per_receiver[receiver] = (queue, message_consumer)
-
-        _logger.debug(f"Created receiver {receiver} on queue {queue}")
+        if self.is_started():
+            receiver = self._create_receiver_link(queue)
+            self.queues_registry[queue] = (receiver, message_consumer)
+            _logger.debug(f"Created receiver {receiver} on queue {queue}")
 
     def detach_message_consumer(self, queue: str) -> None:
         """
@@ -318,18 +346,11 @@ class Consumer(PubSubMessagingHandler):
 
         :param queue:
         """
-        receiver = self._get_receiver_by_queue(queue)
+        receiver, _ = self.queues_registry.pop(queue)
 
-        if not receiver:
-            raise ValueError(f'No receiver found on queue: {queue}')
-
-        # close the receiver
-        receiver.close()
-
-        _logger.debug(f"Closed receiver {receiver} on queue {queue}")
-
-        # remove it from the list
-        del self.message_consumers_per_receiver[receiver]
+        if receiver is not None:
+            receiver.close()
+            _logger.debug(f"Closed receiver {receiver} on queue {queue}")
 
     def on_message(self, event: proton.Event) -> None:
         """
@@ -337,9 +358,10 @@ class Consumer(PubSubMessagingHandler):
 
         :param event:
         """
-        queue, message_consumer = self.message_consumers_per_receiver[event.receiver]
+        queue, message_consumer = self._get_queue_reg_by_receiver(event.receiver)
 
         try:
             message_consumer(event.message)
         except Exception as e:
-            _logger.error(f"Error while processing message {event.message} on queue {queue}: {str(e)}")
+            _logger.error(
+                f"Error while processing message {event.message} on queue {queue}: {str(e)}")
