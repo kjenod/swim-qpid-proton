@@ -27,6 +27,7 @@ http://opensource.org/licenses/BSD-3-Clause
 
 Details on EUROCONTROL: http://www.eurocontrol.int
 """
+import logging
 import threading
 from typing import Optional, Type
 
@@ -37,6 +38,8 @@ __author__ = "EUROCONTROL (SWIM)"
 
 from swim_proton import ConfigDict
 from swim_proton.messaging_handlers import PubSubMessagingHandler, Producer, Consumer
+
+_logger = logging.getLogger(__name__)
 
 
 class PubSubContainer:
@@ -53,8 +56,8 @@ class PubSubContainer:
 
     def is_running(self):
         """
-        Determines whether the container is running by checking the handler and the underlying thread if it's running in
-        threaded mode.
+        Determines whether the container is running by checking the handler and the underlying
+        thread if it's running in threaded mode.
         :return:
         """
         if self._thread:
@@ -62,26 +65,35 @@ class PubSubContainer:
         else:
             return self.messaging_handler.is_started()
 
+    def _run(self):
+        """
+        The actual runner
+        """
+        _logger.info('Starting container')
+        self._container = Container(self.messaging_handler)
+        self._container.run()
+
     def run(self, threaded: bool = False):
         """
         Runs the container in threaded or not mode
         :param threaded:
         :return:
         """
-        if threaded and not self.is_running():
-            self._thread = threading.Thread(target=self._run)
-            self._thread.daemon = True
+        if self.is_running():
+            return
 
-            return self._thread.start()
+        if not threaded:
+            return self._run()
 
-        return self._run()
+        # run in threaded mode
+        self._thread = threading.Thread(target=self._run)
 
-    def _run(self):
-        """
-        The actual runner
-        """
-        self._container = Container(self.messaging_handler)
-        self._container.run()
+        _logger.info('Starting thread')
+        self._thread.start()
+
+    def stop(self):
+        _logger.info('Stopping container')
+        self._container.stop()
 
     @classmethod
     def _create_from_config(cls, config: ConfigDict, messaging_handler_class: Type[PubSubMessagingHandler]):
