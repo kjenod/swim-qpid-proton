@@ -33,7 +33,7 @@ __author__ = 'EUROCONTROL (SWIM)'
 
 setup(
     name='swim-qpid-proton',
-    version='0.0.4',
+    version='0.1.0',
     description='qpid-proton wrapper',
     author='EUROCONTROL (SWIM)',
     author_email='',

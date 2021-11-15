@@ -29,6 +29,7 @@ Details on EUROCONTROL: http://www.eurocontrol.int
 """
 import logging
 import threading
+import time
 from typing import Optional, Type
 
 from proton.reactor import Container
@@ -65,35 +66,78 @@ class PubSubContainer:
         else:
             return self.messaging_handler.is_started()
 
-    def _run(self):
+    def _run(self, timeout: Optional[int] = None):
         """
         The actual runner
         """
+        if timeout is not None:
+            self._spawn_countdown_thread(timeout=timeout)
+
         _logger.info('Starting container')
         self._container = Container(self.messaging_handler)
         self._container.run()
 
-    def run(self, threaded: bool = False):
+    def _countdown(self, timeout: int):
+        """
+        Counts down `timeout` seconds before it attempts to stop the container if it's running
+        """
+
+        # wait until main thread is running
+        while not self.is_running():
+            pass
+
+        while timeout:
+            time.sleep(1)
+            timeout -= 1
+
+        _logger.info("Timeout reached")
+
+        if self.is_running():
+            self.stop()
+
+    def _spawn_run_thread(self, timeout: Optional[int] = None):
+        """
+        Spawns the container in threaded mode
+        :param timeout:
+        """
+        args = (timeout,) if timeout is not None else ()
+
+        self._thread = threading.Thread(target=self._run, args=args)
+
+        _logger.info('Starting thread')
+        self._thread.start()
+
+    def _spawn_countdown_thread(self, timeout: int):
+        """
+        Spawns the countdown thread.
+        :param timeout
+        """
+        # run in threaded mode
+        self._thread = threading.Thread(target=self._countdown, args=(timeout,))
+        self._thread.start()
+
+    def run(self, threaded: bool = False, timeout: Optional[int] = None):
         """
         Runs the container in threaded or not mode
+        :param timeout:
         :param threaded:
         :return:
         """
         if self.is_running():
             return
 
-        if not threaded:
-            return self._run()
-
-        # run in threaded mode
-        self._thread = threading.Thread(target=self._run)
-
-        _logger.info('Starting thread')
-        self._thread.start()
+        if threaded:
+            self._spawn_run_thread(timeout=timeout)
+        else:
+            self._run(timeout=timeout)
 
     def stop(self):
-        _logger.info('Stopping container')
-        self._container.stop()
+        """
+
+        """
+        if self.is_running():
+            _logger.info('Stopping container')
+            self._container.stop()
 
     @classmethod
     def _create_from_config(cls, config: ConfigDict, messaging_handler_class: Type[PubSubMessagingHandler]):
