@@ -126,11 +126,23 @@ class PubSubMessagingHandler(MessagingHandler):
         :return:
         """
         if cert_file and cert_key:
-            connector = TLSConnector(host, cert_file, cert_key, cert_db, cert_password)
+            connector = TLSConnector(
+                host=host,
+                cert_file=cert_file,
+                cert_key=cert_key,
+                cert_db=cert_db,
+                cert_password=cert_password
+            )
         elif cert_db and sasl_user and sasl_password:
-            connector = SASLConnector(host, sasl_user, sasl_password, cert_db, allowed_mechs)
+            connector = SASLConnector(
+                host=host,
+                user=sasl_user,
+                password=sasl_password,
+                cert_db=cert_db,
+                allowed_mechs=allowed_mechs
+            )
         else:
-            connector = Connector(host)
+            connector = Connector(host=host)
 
         return cls(connector=connector)
 
