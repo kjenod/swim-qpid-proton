@@ -112,7 +112,8 @@ class PubSubMessagingHandler(MessagingHandler):
                cert_password: Optional[str] = None,
                sasl_user: Optional[str] = None,
                sasl_password: Optional[str] = None,
-               allowed_mechs: Optional[str] = 'PLAIN'):
+               allowed_mechs: Optional[str] = 'PLAIN',
+               **kwargs):
         """
 
         :param host:
@@ -287,6 +288,33 @@ class Producer(PubSubMessagingHandler):
                 _logger.error(f"Error while sending message: {str(e)}")
         else:
             _logger.info(f"No credit to send message {message}")
+
+    @classmethod
+    def create(cls,
+               host: Optional[str] = None,
+               cert_db: Optional[str] = None,
+               cert_file: Optional[str] = None,
+               cert_key: Optional[str] = None,
+               cert_password: Optional[str] = None,
+               sasl_user: Optional[str] = None,
+               sasl_password: Optional[str] = None,
+               allowed_mechs: Optional[str] = 'PLAIN',
+               **kwargs):
+
+        producer = super().create(host=host,
+                                  cert_db=cert_db,
+                                  cert_file=cert_file,
+                                  cert_key=cert_key,
+                                  cert_password=cert_password,
+                                  sasl_user=sasl_user,
+                                  sasl_password=sasl_password,
+                                  allowed_mechs=allowed_mechs)
+
+        endpoint = kwargs.pop('endpoint', None)
+        if endpoint:
+            producer.endpoint = endpoint
+
+        return producer
 
 
 class Consumer(PubSubMessagingHandler):
