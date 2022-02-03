@@ -322,70 +322,70 @@ class Consumer(PubSubMessagingHandler):
     def __init__(self, connector: Connector) -> None:
         """
         An implementation of a broker client that is supposed to act as subscriber.
-        It subscribes to queues of the broker by creating instances of `proton.Receiver`
+        It subscribes to endpoints of the broker by creating instances of `proton.Receiver`
         for each one of them.
 
         :param connector: takes care of the connection .i.e TSL, SASL etc
         """
         PubSubMessagingHandler.__init__(self, connector)
 
-        # keeps a dict of queues and their receiver/message_consumer
-        self.queues_registry: Dict[str, Tuple[Optional[proton.Receiver], Callable]] = {}
+        # keeps a dict of endpoints and their receiver/message_consumer
+        self.endpoints_registry: Dict[str, Tuple[Optional[proton.Receiver], Callable]] = {}
 
     def _create_receiver_link(self, endpoint: str) -> proton.Receiver:
         return self.container.create_receiver(self.connection, endpoint)
 
-    def _get_queue_reg_by_receiver(self, receiver: proton.Receiver) -> Tuple[str, Callable]:
+    def _get_endpoint_reg_by_receiver(self, receiver: proton.Receiver) -> Tuple[str, Callable]:
         """
-        Find the queue and message_consumer that corresponds to the given receiver.
+        Find the endpoint and message_consumer that corresponds to the given receiver.
         :param receiver:
         :return:
         """
-        for queue, (registered_receiver, message_consumer) in self.queues_registry.items():
+        for endpoint, (registered_receiver, message_consumer) in self.endpoints_registry.items():
             if receiver == registered_receiver:
-                return queue, message_consumer
+                return endpoint, message_consumer
 
     def on_start(self, event: proton.Event) -> None:
         """
         Is triggered upon running the `proton.Container` that uses this handler.
-        It checks if there are queues without a receiver attached to them and creates them
+        It checks if there are endpoints without a receiver attached to them and creates them
 
         :param event:
         """
         # call the parent event handler first to take care of the connection with the broker
         super().on_start(event)
 
-        for queue, (receiver, message_consumer) in self.queues_registry.items():
+        for endpoint, (receiver, message_consumer) in self.endpoints_registry.items():
             if receiver is None:
-                receiver = self._create_receiver_link(queue)
-                self.queues_registry[queue] = (receiver, message_consumer)
-                _logger.debug(f"Created receiver {receiver} on queue {queue}")
+                receiver = self._create_receiver_link(endpoint)
+                self.endpoints_registry[endpoint] = (receiver, message_consumer)
+                _logger.debug(f"Created receiver {receiver} on endpoint {endpoint}")
 
-    def attach_message_consumer(self, queue: str, message_consumer: Callable) -> None:
+    def attach_message_consumer(self, endpoint: str, message_consumer: Callable) -> None:
         """
         Creates a new `proton.Receiver` and assigns the message consumer to it
 
-        :param queue:
-        :param message_consumer: consumes the messages coming from its assigned queue in the broker
+        :param endpoint:
+        :param message_consumer: consumes the messages coming from its assigned endpoint in the broker
         """
-        self.queues_registry[queue] = (None, message_consumer)
+        self.endpoints_registry[endpoint] = (None, message_consumer)
 
         if self.is_started():
-            receiver = self._create_receiver_link(queue)
-            self.queues_registry[queue] = (receiver, message_consumer)
-            _logger.debug(f"Created receiver {receiver} on queue {queue}")
+            receiver = self._create_receiver_link(endpoint)
+            self.endpoints_registry[endpoint] = (receiver, message_consumer)
+            _logger.debug(f"Created receiver {receiver} on endpoint {endpoint}")
 
-    def detach_message_consumer(self, queue: str) -> None:
+    def detach_message_consumer(self, endpoint: str) -> None:
         """
-        Removes the receiver that corresponds to the given queue.
+        Removes the receiver that corresponds to the given endpoint.
 
-        :param queue:
+        :param endpoint:
         """
-        receiver, _ = self.queues_registry.pop(queue)
+        receiver, _ = self.endpoints_registry.pop(endpoint)
 
         if receiver is not None:
             receiver.close()
-            _logger.debug(f"Closed receiver {receiver} on queue {queue}")
+            _logger.debug(f"Closed receiver {receiver} on endpoint {endpoint}")
 
     def on_message(self, event: proton.Event) -> None:
         """
@@ -393,10 +393,10 @@ class Consumer(PubSubMessagingHandler):
 
         :param event:
         """
-        queue, message_consumer = self._get_queue_reg_by_receiver(event.receiver)
+        endpoint, message_consumer = self._get_endpoint_reg_by_receiver(event.receiver)
 
         try:
             message_consumer(event.message)
         except Exception as e:
             _logger.error(
-                f"Error while processing message {event.message} on queue {queue}: {str(e)}")
+                f"Error while processing message {event.message} on endpoint {endpoint}: {str(e)}")
