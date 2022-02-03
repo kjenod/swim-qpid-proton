@@ -21,8 +21,8 @@ in the broker via a `proton.Sender` instance routed to a dedicated topic based o
 
 ##### Consumer
 `Consumer` is an extension of the `proton.MessagingHandler` that keeps a list of message consumers (callbacks defined
-by the end user i.e. a subscriber service) identified by the broker queue they are expecting a message from. The message
-consumer is invoked upon message reception from its queue and consumes the incoming message accordingly.
+by the end user i.e. a subscriber service) identified by the broker endpoint they are expecting a message from. The message
+consumer is invoked upon message reception from its endpoint and consumes the incoming message accordingly.
 
 ##### PubSubContainer
 `PubSubContainer` behaves like a `proton.Container` accepting a `proton.MessagingHandler` but it also provides the 
@@ -79,9 +79,9 @@ config = {}  # connection settings here
 
 container = ConsumerContainer.create_from_config(config)
 
-# the message consumer will be associated with the provided queue and be invoked every time a new message arrives.
-container.consumer.attach_message_consumer('queue_name', lambda context: context)
+# the message consumer will be associated with the provided endpoint and be invoked every time a new message arrives.
+container.consumer.attach_message_consumer('endpoint_name', lambda context: context)
 ```
 
-> The communication of the queue name between the producer and the consumer is out of the scope of this library. 
+> The communication of the endpoint name between the producer and the consumer is out of the scope of this library. 
 > Typically a coordination system is required such as [SubscriptionManager](https://github.com/eurocontrol-swim/subscription-manager).

@@ -224,14 +224,14 @@ def test_producer__send_message__no_errors__message_is_sent(caplog):
     assert f"Message sent: {message}" == log_message
 
 
-def test_consumer__test_get_receiver_by_queue():
+def test_consumer__get_endpoint_reg_by_receiver():
     consumer = Consumer(connector=Mock())
     receiver = Mock()
-    queue = 'queue'
-    consumer.message_consumers_per_receiver = {receiver: (queue, Mock())}
+    endpoint = 'endpoint'
+    consumer.endpoints_registry = {endpoint: (receiver, Mock())}
 
-    assert receiver == consumer._get_receiver_by_queue(queue)
-    assert consumer._get_receiver_by_queue('invalid') is None
+    assert endpoint == consumer._get_endpoint_reg_by_receiver(receiver)[0]
+    assert consumer._get_endpoint_reg_by_receiver('invalid') is None
 
 
 def test_consumer__attach_message_consumer(caplog):
@@ -239,25 +239,26 @@ def test_consumer__attach_message_consumer(caplog):
 
     consumer = Consumer(connector=Mock())
     receiver = Mock()
-    queue = 'queue'
+    endpoint = 'endpoint'
     message_consumer = Mock()
     consumer._create_receiver_link = Mock(return_value=receiver)
+    consumer.is_started = Mock(return_value=True)
 
-    consumer.attach_message_consumer(queue, message_consumer)
+    consumer.attach_message_consumer(endpoint, message_consumer)
 
-    consumer._create_receiver_link.assert_called_once_with(queue)
-    assert receiver in consumer.message_consumers_per_receiver
-    assert (queue, message_consumer) == consumer.message_consumers_per_receiver[receiver]
+    consumer._create_receiver_link.assert_called_once_with(endpoint)
+    assert endpoint in consumer.endpoints_registry
+    assert (receiver, message_consumer) == consumer.endpoints_registry[endpoint]
 
     log_message = caplog.records[0].message
-    assert f"Created receiver {receiver} on queue {queue}" == log_message
+    assert f"Created receiver {receiver} on endpoint {endpoint}" == log_message
 
 
 def test_consumer__detach_message_consumer__receiver_not_found__raises_valueerror():
     consumer = Consumer(connector=Mock())
 
-    with pytest.raises(ValueError) as e:
-        consumer.detach_message_consumer('queue')
+    with pytest.raises(KeyError) as e:
+        consumer.detach_message_consumer('endpoint')
 
 
 def test_consumer__detach_message_consumer__receiver_closes_and_logs_message(caplog):
@@ -266,15 +267,15 @@ def test_consumer__detach_message_consumer__receiver_closes_and_logs_message(cap
     consumer = Consumer(connector=Mock())
     receiver = Mock()
     receiver.close = Mock()
-    queue = 'queue'
-    consumer.message_consumers_per_receiver[receiver] = (queue, Mock())
+    endpoint = 'endpoint'
+    consumer.endpoints_registry[endpoint] = (receiver, Mock())
 
-    consumer.detach_message_consumer(queue)
+    consumer.detach_message_consumer(endpoint)
 
     receiver.close.assert_called_once()
 
     log_message = caplog.records[0].message
-    assert f"Closed receiver {receiver} on queue {queue}" == log_message
+    assert f"Closed receiver {receiver} on endpoint {endpoint}" == log_message
 
 
 def test_consumer__on_message__message_consumer_error__logs_message(caplog):
@@ -283,8 +284,8 @@ def test_consumer__on_message__message_consumer_error__logs_message(caplog):
     consumer = Consumer(connector=Mock())
     receiver = Mock()
     receiver.close = Mock()
-    queue = 'queue'
-    consumer.message_consumers_per_receiver[receiver] = (queue, Mock(side_effect=Exception('error')))
+    endpoint = 'endpoint'
+    consumer.endpoints_registry[endpoint] = (receiver, Mock(side_effect=Exception('error')))
 
     event = Mock()
     event.receiver = receiver
@@ -293,7 +294,7 @@ def test_consumer__on_message__message_consumer_error__logs_message(caplog):
     consumer.on_message(event)
 
     log_message = caplog.records[0].message
-    assert f"Error while processing message {event.message} on queue {queue}: error" == log_message
+    assert f"Error while processing message {event.message} on endpoint {endpoint}: error" == log_message
 
 
 @pytest.mark.parametrize('container, connection, is_started', [
