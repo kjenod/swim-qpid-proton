@@ -243,8 +243,9 @@ class Producer(PubSubMessagingHandler):
                 f"Error while producing message for producer `{message_producer_id}`: {str(e)}")
             return
 
-        _logger.info(f"Sending message for producer `{message_producer_id}`: {message}")
-        self._send_message(message=message, subject=message_producer_id)
+        if message:
+            _logger.info(f"Sending message for producer `{message_producer_id}`: {message}")
+            self._send_message(message=message, subject=message_producer_id)
 
     def _make_message_producer_timer_task(
             self, message_producer_id: str, interval_in_sec: int) -> TimerTask:
