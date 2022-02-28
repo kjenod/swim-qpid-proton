@@ -33,9 +33,11 @@ from unittest.mock import Mock
 import proton
 import pytest
 
-from swim_proton.messaging_handlers import Producer, TimerTask, Consumer, PubSubMessagingHandler
+from swim_proton.messaging_handlers import Producer, ScheduledTask, Consumer, PubSubMessagingHandler
 
 __author__ = "EUROCONTROL (SWIM)"
+
+# TODO: fix tests
 
 
 def test_producer__on_start__error_while_creating_sender(caplog):
@@ -47,9 +49,9 @@ def test_producer__on_start__error_while_creating_sender(caplog):
     message_producer = Mock()
 
     producer = Producer(connector)
-    producer._schedule_timer_task = mock_schedule_timer_task
+    producer._schedule_task = mock_schedule_timer_task
     producer._create_sender_link = mock_create_sender_link
-    producer.message_producers = {'id': message_producer}
+    producer.messengers = {'id': message_producer}
 
     producer.on_start(event=Mock())
 
@@ -64,67 +66,58 @@ def test_producer__on_start__no_errors(caplog):
     caplog.set_level(logging.DEBUG)
 
     sender = Mock()
-    message_producer = Mock()
+    messenger = Mock()
 
     producer = Producer(connector=Mock())
-    producer._schedule_timer_task = Mock()
+    producer._schedule_messenger = Mock()
     producer._create_sender_link = Mock(return_value=sender)
-    producer.message_producer_timer_tasks = [message_producer]
+    producer._to_schedule = [messenger]
 
     producer.on_start(event=Mock())
 
     log_message = caplog.records[1].message
 
     producer._create_sender_link.assert_called_once()
-    producer._schedule_timer_task.assert_called_once_with(message_producer)
+    producer._schedule_messenger.assert_called_once_with(messenger)
     assert f"Created sender: {sender}" == log_message
-
-
-def test_producer__add_message_producer__id_already_exists__raises_valueerror():
-    producer = Producer(connector=Mock())
-    producer.message_producers = {'id', Mock()}
-
-    with pytest.raises(ValueError) as e:
-        producer.add_message_producer('id', Mock())
-    assert f"Message producer with id 'id' already exists" == str(e.value)
 
 
 def test_producer__add_message_producer__without_interval():
     producer = Producer(connector=Mock())
-    producer._schedule_timer_task = Mock()
+    producer._schedule_task = Mock()
 
     message_producer = Mock()
 
-    producer.add_message_producer('id', message_producer)
+    producer.add_messenger('id', message_producer)
 
-    assert message_producer in producer.message_producers.values()
-    producer._schedule_timer_task.assert_not_called()
+    assert message_producer in producer.messengers.values()
+    producer._schedule_task.assert_not_called()
 
 
 @pytest.mark.parametrize('handler_is_started', [True, False])
 def test_producer__add_message_producer__with_interval(handler_is_started):
     producer = Producer(connector=Mock())
-    producer._schedule_timer_task = Mock()
+    producer._schedule_task = Mock()
     producer.is_started = Mock(return_value=handler_is_started)
 
     message_producer = Mock()
 
-    producer.add_message_producer('id', message_producer=message_producer, interval_in_sec=5)
+    producer.add_messenger('id', messenger=message_producer, interval_in_sec=5)
 
-    assert message_producer in producer.message_producers.values()
+    assert message_producer in producer.messengers.values()
 
     if handler_is_started:
-        producer._schedule_timer_task.assert_called_once()
+        producer._schedule_task.assert_called_once()
     else:
-        producer._schedule_timer_task.assert_not_called()
-        assert 1 == len(producer.message_producer_timer_tasks)
+        producer._schedule_task.assert_not_called()
+        assert 1 == len(producer.scheduled_tasks)
 
 
 def test_producer__trigger_message_producer__message_producer_does_not_exist__raises_valueerror():
     producer = Producer(connector=Mock())
 
     with pytest.raises(ValueError) as e:
-        producer.trigger_message_producer('invalid_id')
+        producer.trigger_messenger('invalid_id')
     assert f"Invalid message producer id: invalid_id" == str(e.value)
 
 
@@ -136,9 +129,9 @@ def test_producer__trigger_message_producer__message_producer_error__does_not_se
     producer = Producer(connector=Mock())
     producer._send_message = Mock()
 
-    producer.message_producers = {'id': message_producer}
+    producer.messengers = {'id': message_producer}
 
-    producer.trigger_message_producer('id')
+    producer.trigger_messenger('id')
 
     log_message = caplog.records[0].message
 
@@ -155,9 +148,9 @@ def test_producer__trigger_message_producer__no_errors__message_is_sent(caplog):
     producer = Producer(connector=Mock())
     producer._send_message = Mock()
 
-    producer.message_producers = {'id': message_producer}
+    producer.messengers = {'id': message_producer}
 
-    producer.trigger_message_producer('id')
+    producer.trigger_messenger('id')
 
     log_message = caplog.records[0].message
 
@@ -171,9 +164,9 @@ def test_producer__make_message_producer_timer_task():
     message_producer_id = 'id'
     interval_in_sec = 5
 
-    timer_task = producer._make_message_producer_timer_task(message_producer_id, interval_in_sec)
+    timer_task = producer._scheduled_task_from_messenger(message_producer_id, interval_in_sec)
 
-    assert isinstance(timer_task, TimerTask)
+    assert isinstance(timer_task, ScheduledTask)
     assert timer_task.interval_in_sec == interval_in_sec
 
 
@@ -315,7 +308,7 @@ def test_timer_task__on_timer_task__task_is_called_and_rescheduled():
     task = Mock()
     interval_in_sec = 5
 
-    timer_task = TimerTask(task=task, interval_in_sec=interval_in_sec)
+    timer_task = ScheduledTask(task=task, interval_in_sec=interval_in_sec)
 
     event = Mock()
     event.container = Mock()

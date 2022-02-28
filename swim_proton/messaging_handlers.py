@@ -31,8 +31,9 @@ Details on EUROCONTROL: http://www.eurocontrol.int
 
 import logging
 import traceback
+from dataclasses import dataclass
 from functools import partial
-from typing import Optional, List, Any, Dict, Callable, Tuple
+from typing import Optional, List, Any, Dict, Callable, Tuple, Union
 
 import proton
 from proton.handlers import MessagingHandler
@@ -45,11 +46,12 @@ from swim_proton.connectors import Connector, TLSConnector, SASLConnector
 _logger = logging.getLogger(__name__)
 
 
-class TimerTask(MessagingHandler):
+class ScheduledTask(MessagingHandler):
 
     def __init__(self, task: Callable, interval_in_sec: int):
         """
-        It inherits from `proton.MessagingHandler` in order to take advantage of its event scheduling functionality
+        It inherits from `proton.MessagingHandler` in order to take advantage of its event
+        scheduling functionality
 
         :param task:
         :param interval_in_sec:
@@ -61,8 +63,8 @@ class TimerTask(MessagingHandler):
 
     def on_timer_task(self, event: proton.Event):
         """
-        Is triggered upon a scheduled action. The first scheduling will be done by the broker handler and then the topic
-        will be re-scheduling itself
+        Is triggered upon a scheduled action. The first scheduling will be done by the broker
+        handler and then the topic will be re-scheduling itself
 
         :param event:
         """
@@ -159,6 +161,32 @@ class PubSubMessagingHandler(MessagingHandler):
         return cls.create(**config)
 
 
+@dataclass
+class Messenger:
+    id: Union[str, bytes]
+    message_producer: Callable[..., proton.Message]
+    interval_in_sec: Optional[int] = None
+    after_send: Optional[List[Callable]] = None
+
+    def __post_init__(self):
+        if self.after_send is None:
+            self.after_send = []
+
+    def get_message(self, context: Optional[Any]) -> Optional[proton.Message]:
+        try:
+            message = self.message_producer(context=context)
+
+            # the subject under which the message will be routed in the broker
+            # typically it is the messenger_id or the topic name more generally
+            if message:
+                message.subject = self.id
+        except Exception as e:
+            message = None
+            _logger.error(f"Error while producing message for messenger {self.id}: {str(e)}")
+
+        return message
+
+
 class Producer(PubSubMessagingHandler):
 
     def __init__(self, connector: Connector) -> None:
@@ -173,8 +201,7 @@ class Producer(PubSubMessagingHandler):
 
         self.endpoint: str = '/exchange/amq.topic'
         self._sender: Optional[proton.Sender] = None
-        self.message_producers: Dict[str, Callable] = {}
-        self.message_producer_timer_tasks: List[TimerTask] = []
+        self._to_schedule: list[Messenger] = []
 
     def _create_sender_link(self, endpoint: str) -> proton.Sender:
         return self.container.create_sender(self.connection, endpoint)
@@ -197,98 +224,67 @@ class Producer(PubSubMessagingHandler):
             _logger.error(f'Error while creating sender: {str(e)}')
             return
 
-        for timer_task in self.message_producer_timer_tasks:
-            self._schedule_timer_task(timer_task)
+        while self._to_schedule:
+            messenger = self._to_schedule.pop(0)
+            self._schedule_messenger(messenger)
 
-    def add_message_producer(self,
-                             id: str,
-                             message_producer: Callable,
-                             interval_in_sec: Optional[int] = None) -> None:
+    def schedule_messenger(self, messenger: Messenger) -> None:
+        if not messenger.interval_in_sec:
+            raise AssertionError(f"Invalid interval: {messenger.interval_in_sec}")
+
+        if self.is_started():
+            self._schedule_messenger(messenger)
+        else:
+            self._to_schedule.append(messenger)
+
+    def trigger_messenger(self, messenger: Messenger, context: Optional[Any] = None) -> None:
         """
-        Registers a new message_producer (callback)
+        Generates a message via the messenger.message_producer and sends it in the broker.
 
-        :param id: a unique id/name
-        :param message_producer: the callback that will produce the message to be senf in the broker
-        :param interval_in_sec: if not None it will schedule the message_producers execution
-        """
-        if id in self.message_producers:
-            raise ValueError(f"Message producer with id '{id}' already exists")
-
-        self.message_producers[id] = message_producer
-
-        if interval_in_sec is not None:
-            message_producer_timer_task = self._make_message_producer_timer_task(id,
-                                                                                 interval_in_sec)
-            if self.is_started():
-                self._schedule_timer_task(message_producer_timer_task)
-            else:
-                self.message_producer_timer_tasks.append(message_producer_timer_task)
-
-    def trigger_message_producer(
-            self, message_producer_id: str, context: Optional[Any] = None) -> None:
-        """
-        Generates a message via the message_producer and sends it in the broker.
-
-        :param message_producer_id:
+        :param messenger:
         :param context:
         """
-        if message_producer_id not in self.message_producers:
-            raise ValueError(f"Invalid message producer id: {message_producer_id}")
 
-        message_producer = self.message_producers[message_producer_id]
-        try:
-            message = message_producer(context=context)
-        except Exception as e:
-            _logger.error(
-                f"Error while producing message for producer `{message_producer_id}`: {str(e)}")
-            return
+        _logger.info(f"Producing message for messenger {messenger.id}")
+        message = messenger.get_message(context=context)
 
         if message:
-            _logger.info(f"Sending message for producer `{message_producer_id}`: {message}")
-            self._send_message(message=message, subject=message_producer_id)
-
-    def _make_message_producer_timer_task(
-            self, message_producer_id: str, interval_in_sec: int) -> TimerTask:
-        """
-
-        :param message_producer_id:
-        :param interval_in_sec:
-        :return:
-        """
-        task = partial(self.trigger_message_producer, message_producer_id=message_producer_id)
-
-        result = TimerTask(task=task, interval_in_sec=interval_in_sec)
-
-        return result
-
-    def _schedule_timer_task(self, timer_task: TimerTask) -> None:
-        """
-
-        :param timer_task:
-        """
-        self.container.schedule(timer_task.interval_in_sec, timer_task)
-
-    def _send_message(self, message: proton.Message, subject: str) -> None:
-        """
-        Sends the provided message via the broker. The subject will serve as a routing key in the
-        broker. Typically it should be the respective message_producer name.
-
-        :param message:
-        :param subject:
-        """
-        # the subject under which the message will be routed in the broker
-        # typically it is the message_producer_id or the topic name more generally
-        message.subject = subject
-
-        if self._sender and self._sender.credit:
             try:
-                self._sender.send(message)
-                _logger.info(f"Message sent: {message}")
+                _logger.info(f"Attempting to send message for messenger `{messenger.id}`: {message}")
+                self._send_message(message=message)
+                _logger.info("Message sent")
             except Exception as e:
                 traceback.print_exc()
                 _logger.error(f"Error while sending message: {str(e)}")
-        else:
-            _logger.info(f"No credit to send message {message}")
+            else:
+                for callback in messenger.after_send:
+                    try:
+                        callback()
+                    except Exception as e:
+                        _logger.error(f"Error while running after send callback for messenger "
+                                      "{messenger.id}")
+
+    def _schedule_messenger(self, messenger: Messenger):
+        task = ScheduledTask(
+            task=lambda: self.trigger_messenger(messenger=messenger),
+            interval_in_sec=messenger.interval_in_sec
+        )
+        self.container.schedule(task.interval_in_sec, task)
+
+    def _send_message(self, message: proton.Message) -> None:
+        """
+        Sends the provided message via the broker.
+
+        :param message:
+        """
+
+        if not self._sender:
+            raise AssertionError("Sender has not been defined yet")
+
+        if not self._sender.credit:
+            raise ValueError("Not enough credit to send message")
+
+        self._sender.send(message)
 
     @classmethod
     def create(cls,

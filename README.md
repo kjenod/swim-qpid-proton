@@ -6,18 +6,18 @@ the user to register callbacks that will be called upon sending and reception of
 
 ### Terminology
 
-##### message_producer
-A `message_producer` is a callback defined by the end user i.e. a publisher service. It accepts optionally a `context`
-parameter.
-
-##### message_consumer
-A `message_consumer` is a callback defined by the end user i.e. a subscriber service. It accepts a`proton.Message` 
-parameter.
+##### Messenger
+A `Messenger` is a data structure defined by the end user i.e. a publisher service with the 
+following necessary info to produce the desired message:
 
 ##### Producer
 `Producer` is an extension of the `proton.MessagingHandler` that keeps a list of message producers identified by a unique id (topic name). A message producer can be invoked via 
 the `Producer` on demand or it can be scheduled to be executed in interval periods. All produced messages will be sent
 in the broker via a `proton.Sender` instance routed to a dedicated topic based on the id of the message producer.
+
+##### message_consumer
+A `message_consumer` is a callback defined by the end user i.e. a subscriber service. It accepts a`proton.Message` 
+parameter.
 
 ##### Consumer
 `Consumer` is an extension of the `proton.MessagingHandler` that keeps a list of message consumers (callbacks defined
@@ -52,21 +52,37 @@ A container is created by providing a config object (dict) with the following pr
 ### Examples
 
 ##### Producer
+
 ```python
 
 from swim_proton.containers import ProducerContainer
+from swim_proton.messaging_handlers import Messenger
 
 config = {}  # connection settings here 
 
 container = ProducerContainer.create_from_config(config)
 
-container.producer.add_message_producer('topic1', lambda context: 'topic1 message' + context, interval_in_sec=5)
-container.producer.add_message_producer('topic2', lambda context: 'topic2 message' + context)
+messenger1 = Messenger(
+    id='topic1', 
+    message_producer=lambda context: 'topic1 message' + context,
+    interval_in_sec=5,
+    after_send=[
+        lambda: 'after send action'
+    ]
+)
 
-# both of the message producers can be invoked on demand. However, the message producer 'topic1' will also be invoked 
-# every 5 seconds
-container.producer.trigger_message('topic1', context='extra message')
-container.producer.trigger_message('topic2', context='extra message')
+messenger2 = Messenger(
+    id='topic2', 
+    message_producer=lambda context: 'topic2 message' + context,
+    interval_in_sec=5
+)
+container.producer.schedule_messenger(messenger1)
+container.producer.schedule_messenger(messenger2)
+
+# both of the messengers can be triggered on demand. 
+# However, the messenger1 will also be triggered every 5 seconds
+container.producer.trigger_messenger(messenger1, context='extra message')
+container.producer.trigger_messenger(messenger2, context='extra message')
 ```
 
 ##### Consumer
