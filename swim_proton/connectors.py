@@ -34,8 +34,6 @@ import proton
 from proton import SSLDomain
 from proton.reactor import Container
 
-from swim_proton import utils
-
 
 class Connector:
     protocol = 'amqp'
@@ -81,13 +79,6 @@ class TLSConnector(Connector):
         self.cert_db = cert_db
         self.cert_password = cert_password
 
-        # self.ssl_domain = utils.create_ssl_domain(
-        #     cert_file=cert_file,
-        #     cert_key=cert_key,
-        #     cert_db=cert_db,
-        #     cert_password=cert_password
-        # )
-
     def connect(self, container: Container) -> proton.Connection:
         container = self.prepare_container(container)
 
@@ -121,7 +112,6 @@ class SASLConnector(Connector):
         self.password = password
         self.cert_db = cert_db
         self.allowed_mechs = allowed_mechs
-        # self.ssl_domain = utils.create_ssl_domain(cert_db=cert_db)
 
     def prepare_container(self, container: Container) -> Container:
         container.ssl.client.set_trusted_ca_db(self.cert_db)
@@ -133,7 +123,6 @@ class SASLConnector(Connector):
         container = self.prepare_container(container)
 
         return container.connect(self.url,
-                                 # ssl_domain=self.ssl_domain,
                                  sasl_enabled=True,
                                  allowed_mechs=self.allowed_mechs,
                                  user=self.user,

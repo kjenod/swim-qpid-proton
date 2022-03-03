@@ -32,12 +32,9 @@ Details on EUROCONTROL: http://www.eurocontrol.int
 import logging
 import traceback
 from dataclasses import dataclass
-from functools import partial
 from typing import Optional, List, Any, Dict, Callable, Tuple, Union
 
 import proton
-from proton import SSLDomain
-from proton._reactor import Container
 from proton.handlers import MessagingHandler
 
 __author__ = "EUROCONTROL (SWIM)"
