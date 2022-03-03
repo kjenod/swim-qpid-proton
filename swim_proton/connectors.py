@@ -31,6 +31,7 @@ Details on EUROCONTROL: http://www.eurocontrol.int
 __author__ = "EUROCONTROL (SWIM)"
 
 import proton
+from proton import SSLDomain
 from proton.reactor import Container
 
 from swim_proton import utils
@@ -75,15 +76,31 @@ class TLSConnector(Connector):
         """
         super().__init__(host)
 
-        self._ssl_domain = utils.create_ssl_domain(
-            cert_file=cert_file,
-            cert_key=cert_key,
-            cert_db=cert_db,
-            cert_password=cert_password
-        )
+        self.cert_file = cert_file
+        self.cert_key = cert_key
+        self.cert_db = cert_db
+        self.cert_password = cert_password
+
+        # self.ssl_domain = utils.create_ssl_domain(
+        #     cert_file=cert_file,
+        #     cert_key=cert_key,
+        #     cert_db=cert_db,
+        #     cert_password=cert_password
+        # )
 
     def connect(self, container: Container) -> proton.Connection:
-        return container.connect(self.url, ssl_domain=self._ssl_domain)
+        container = self.prepare_container(container)
+
+        return container.connect(self.url)
+
+    def prepare_container(self, container: Container) -> Container:
+        container.ssl.client.set_trusted_ca_db(self.cert_db)
+        container.ssl.client.set_peer_authentication(SSLDomain.VERIFY_PEER)
+        container.ssl.client.set_credentials(self.cert_file,
+                                             self.cert_key,
+                                             self.cert_password)
+
+        return container
 
 
 class SASLConnector(Connector):
@@ -100,15 +117,24 @@ class SASLConnector(Connector):
         :param allowed_mechs:
         """
         super().__init__(host)
-        self._user = user
-        self._password = password
-        self._allowed_mechs = allowed_mechs
-        self._ssl_domain = utils.create_ssl_domain(cert_db=cert_db)
+        self.user = user
+        self.password = password
+        self.cert_db = cert_db
+        self.allowed_mechs = allowed_mechs
+        # self.ssl_domain = utils.create_ssl_domain(cert_db=cert_db)
+
+    def prepare_container(self, container: Container) -> Container:
+        container.ssl.client.set_trusted_ca_db(self.cert_db)
+        container.ssl.client.set_peer_authentication(SSLDomain.VERIFY_PEER)
+
+        return container
 
     def connect(self, container: Container) -> proton.Connection:
+        container = self.prepare_container(container)
+
         return container.connect(self.url,
-                                 ssl_domain=self._ssl_domain,
+                                 # ssl_domain=self.ssl_domain,
                                  sasl_enabled=True,
-                                 allowed_mechs=self._allowed_mechs,
-                                 user=self._user,
-                                 password=self._password)
+                                 allowed_mechs=self.allowed_mechs,
+                                 user=self.user,
+                                 password=self.password)
