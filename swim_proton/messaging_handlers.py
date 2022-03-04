@@ -95,6 +95,7 @@ class PubSubMessagingHandler(MessagingHandler):
         return self.container is not None and self.connection is not None
 
     def connect(self, container):
+        _logger.info(f'Connecting to {self.connector.url}')
         self.container = container
         self.connection = self.connector.connect(self.container)
 
@@ -106,7 +107,6 @@ class PubSubMessagingHandler(MessagingHandler):
         :param event:
         """
         self.connect(event.container)
-        # _logger.info(f'Connected to broker @ {self.connector.url}')
 
     @classmethod
     def create(cls,
@@ -333,11 +333,7 @@ class Consumer(PubSubMessagingHandler):
         self.endpoints_registry: Dict[str, Tuple[Optional[proton.Receiver], Callable]] = {}
 
     def _create_receiver_link(self, endpoint: str) -> proton.Receiver:
-        url = f"{self.connector.url}/{endpoint}"
-        receiver = self.container.create_receiver(url)
-        self.connection = receiver.connection
-
-        return receiver
+        return self.container.create_receiver(self.connection, endpoint)
 
     def _get_endpoint_reg_by_receiver(self, receiver: proton.Receiver) -> Tuple[str, Callable]:
         """
@@ -348,14 +344,6 @@ class Consumer(PubSubMessagingHandler):
         for endpoint, (registered_receiver, message_consumer) in self.endpoints_registry.items():
             if receiver == registered_receiver:
                 return endpoint, message_consumer
-
-    def connect(self, container):
-        if isinstance(self.connector, TLSConnector):
-            # in case of TLS connection we prepare the container with the proper configuration
-            # and the connection will take place upon receiver creation
-            self.container = self.connector.prepare_container(container)
-        else:
-            super().connect(container)
 
     def on_start(self, event: proton.Event) -> None:
         """

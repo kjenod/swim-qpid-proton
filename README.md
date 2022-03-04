@@ -1,4 +1,4 @@
-## swim-qpid-proton v0.1.1
+## swim-qpid-proton v0.3.1
 
 ### Introduction
 `swim-qpid-proton` is an extension of [python-qpid_proton](https://pypi.org/project/python-qpid-proton/). It enables

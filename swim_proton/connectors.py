@@ -80,11 +80,11 @@ class TLSConnector(Connector):
         self.cert_password = cert_password
 
     def connect(self, container: Container) -> proton.Connection:
-        container = self.prepare_container(container)
+        container = self._prepare_container(container)
 
         return container.connect(self.url)
 
-    def prepare_container(self, container: Container) -> Container:
+    def _prepare_container(self, container: Container) -> Container:
         container.ssl.client.set_trusted_ca_db(self.cert_db)
         container.ssl.client.set_peer_authentication(SSLDomain.VERIFY_PEER)
         container.ssl.client.set_credentials(self.cert_file,
@@ -113,14 +113,14 @@ class SASLConnector(Connector):
         self.cert_db = cert_db
         self.allowed_mechs = allowed_mechs
 
-    def prepare_container(self, container: Container) -> Container:
+    def _prepare_container(self, container: Container) -> Container:
         container.ssl.client.set_trusted_ca_db(self.cert_db)
         container.ssl.client.set_peer_authentication(SSLDomain.VERIFY_PEER)
 
         return container
 
     def connect(self, container: Container) -> proton.Connection:
-        container = self.prepare_container(container)
+        container = self._prepare_container(container)
 
         return container.connect(self.url,
                                  sasl_enabled=True,
