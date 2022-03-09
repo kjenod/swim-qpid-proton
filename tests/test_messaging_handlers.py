@@ -98,7 +98,7 @@ def test_producer__add_message_producer__without_interval():
 def test_producer__add_message_producer__with_interval(handler_is_started):
     producer = Producer(connector=Mock())
     producer._schedule_task = Mock()
-    producer.is_started = Mock(return_value=handler_is_started)
+    producer.is_connected = Mock(return_value=handler_is_started)
 
     message_producer = Mock()
 
@@ -235,7 +235,7 @@ def test_consumer__attach_message_consumer(caplog):
     endpoint = 'endpoint'
     message_consumer = Mock()
     consumer._create_receiver_link = Mock(return_value=receiver)
-    consumer.is_started = Mock(return_value=True)
+    consumer.is_connected = Mock(return_value=True)
 
     consumer.attach_message_consumer(endpoint, message_consumer)
 
@@ -301,7 +301,7 @@ def test_pubsubmessaging_handler__is_started(container, connection, is_started):
     messaging_handler.container = container
     messaging_handler.connection = connection
 
-    assert is_started == messaging_handler.is_started()
+    assert is_started == messaging_handler.is_connected()
 
 
 def test_timer_task__on_timer_task__task_is_called_and_rescheduled():

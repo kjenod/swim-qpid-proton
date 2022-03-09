@@ -55,16 +55,16 @@ class PubSubContainer:
         self._thread: Optional[threading.Thread] = None
         self._container: Optional[Container] = None
 
-    def is_running(self):
+    def thread_is_running(self):
         """
         Determines whether the container is running by checking the handler and the underlying
         thread if it's running in threaded mode.
         :return:
         """
-        if self._thread:
-            return self.messaging_handler.is_started() and self._thread.is_alive()
-        else:
-            return self.messaging_handler.is_started()
+        return self._thread and self._thread.is_alive()
+
+    def is_connected(self):
+        return self.messaging_handler.is_connected()
 
     def _run(self, timeout: Optional[int] = None):
         """
@@ -83,7 +83,7 @@ class PubSubContainer:
         """
 
         # wait until main thread is running
-        while not self.is_running():
+        while not self.thread_is_running():
             pass
 
         while timeout:
@@ -92,7 +92,7 @@ class PubSubContainer:
 
         _logger.info("Timeout reached")
 
-        if self.is_running():
+        if self.thread_is_running():
             self.stop()
 
     def _spawn_run_thread(self, timeout: Optional[int] = None):
@@ -123,7 +123,7 @@ class PubSubContainer:
         :param threaded:
         :return:
         """
-        if self.is_running():
+        if self.thread_is_running():
             return
 
         if threaded:
@@ -135,7 +135,7 @@ class PubSubContainer:
         """
 
         """
-        if self.is_running():
+        if self.thread_is_running():
             _logger.info('Stopping container')
             self._container.stop()
 

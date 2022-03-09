@@ -91,13 +91,16 @@ class PubSubMessagingHandler(MessagingHandler):
         self.connection = None
         self.config = None
 
-    def is_started(self):
+    def is_connected(self):
         return self.container is not None and self.connection is not None
 
     def connect(self, container):
         _logger.info(f'Connecting to {self.connector.url}')
         self.container = container
-        self.connection = self.connector.connect(self.container)
+        try:
+            self.connection = self.connector.connect(self.container)
+        except Exception as e:
+            _logger.error(f"Failed to connect to {self.connector.url}: {str(e)}")
 
     def on_start(self, event: proton.Event):
         """
@@ -206,8 +209,15 @@ class Producer(PubSubMessagingHandler):
         self._sender: Optional[proton.Sender] = None
         self._to_schedule: list[Messenger] = []
 
-    def _create_sender_link(self, endpoint: str) -> proton.Sender:
-        return self.container.create_sender(self.connection, endpoint)
+    def _create_sender_link(self, endpoint: str) -> Optional[proton.Sender]:
+        try:
+            self.container.create_sender(self.connection, endpoint)
+            _logger.debug(f"Created sender on endpoint {self.endpoint}")
+        except Exception as e:
+            _logger.error(f'Failed to create sender on endpoint {self.endpoint}: {str(e)}')
+            sender = None
+
+        return sender
 
     def on_start(self, event: proton.Event) -> None:
         """
@@ -220,11 +230,12 @@ class Producer(PubSubMessagingHandler):
         # call the parent event handler first to take care of the connection with the broker
         super().on_start(event)
 
-        try:
-            self._sender = self._create_sender_link(self.endpoint)
-            _logger.debug(f"Created sender: {self._sender}")
-        except Exception as e:
-            _logger.error(f'Error while creating sender: {str(e)}')
+        if not self.connection:
+            return
+
+        self._sender = self._create_sender_link(self.endpoint)
+
+        if not self._sender:
             return
 
         while self._to_schedule:
@@ -235,7 +246,7 @@ class Producer(PubSubMessagingHandler):
         if not messenger.interval_in_sec:
             raise AssertionError(f"Invalid interval: {messenger.interval_in_sec}")
 
-        if self.is_started():
+        if self.is_connected():
             self._schedule_messenger(messenger)
         else:
             self._to_schedule.append(messenger)
@@ -332,8 +343,16 @@ class Consumer(PubSubMessagingHandler):
         # keeps a dict of endpoints and their receiver/message_consumer
         self.endpoints_registry: Dict[str, Tuple[Optional[proton.Receiver], Callable]] = {}
 
-    def _create_receiver_link(self, endpoint: str) -> proton.Receiver:
-        return self.container.create_receiver(self.connection, endpoint)
+    def _create_receiver_link(self, endpoint: str) -> Optional[proton.Receiver]:
+
+        try:
+            receiver = self.container.create_receiver(self.connection, endpoint)
+            _logger.debug(f"Created receiver on endpoint {endpoint}")
+        except Exception as e:
+            receiver = None
+            _logger.error(f"Failed to create receiver on {endpoint}: {str(e)}")
+
+        return receiver
 
     def _get_endpoint_reg_by_receiver(self, receiver: proton.Receiver) -> Tuple[str, Callable]:
         """
@@ -355,11 +374,14 @@ class Consumer(PubSubMessagingHandler):
         # call the parent event handler first to take care of the connection with the broker
         super().on_start(event)
 
+        if not self.connection:
+            return
+
         for endpoint, (receiver, message_consumer) in self.endpoints_registry.items():
             if receiver is None:
                 receiver = self._create_receiver_link(endpoint)
-                self.endpoints_registry[endpoint] = (receiver, message_consumer)
-                _logger.debug(f"Created receiver {receiver} on endpoint {endpoint}")
+                if receiver:
+                    self.endpoints_registry[endpoint] = (receiver, message_consumer)
 
     def attach_message_consumer(self, endpoint: str, message_consumer: Callable) -> None:
         """
@@ -370,10 +392,10 @@ class Consumer(PubSubMessagingHandler):
         """
         self.endpoints_registry[endpoint] = (None, message_consumer)
 
-        if self.is_started():
+        if self.is_connected():
             receiver = self._create_receiver_link(endpoint)
-            self.endpoints_registry[endpoint] = (receiver, message_consumer)
-            _logger.debug(f"Created receiver {receiver} on endpoint {endpoint}")
+            if receiver:
+                self.endpoints_registry[endpoint] = (receiver, message_consumer)
 
     def detach_message_consumer(self, endpoint: str) -> None:
         """
