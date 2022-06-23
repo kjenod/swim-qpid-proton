@@ -21,7 +21,7 @@ dependencies:
   - pyparsing=3.0.4=pyhd3eb1b0_0
   - pytest=6.2.5=py39h06a4308_2
   - pytest-cov=3.0.0=pyhd3eb1b0_0
-  - python=3.9.7=h12debd9_1
+  - python=3.10.4=h12debd9_1
   - pyyaml=6.0=py39h7f8727e_1
   - readline=8.1.2=h7f8727e_1
   - setuptools=58.0.4=py39h06a4308_0
@@ -34,4 +34,4 @@ dependencies:
   - yaml=0.2.5=h7b6447c_0
   - zlib=1.2.11=h7f8727e_4
   - pip:
-    - python-qpid-proton==0.36.0
+    - python-qpid-proton==0.37.0
