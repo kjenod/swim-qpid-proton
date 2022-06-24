@@ -207,7 +207,7 @@ class Producer(PubSubMessagingHandler):
 
         self.endpoint: str = '/exchange/amq.topic'
         # self._sender: Optional[proton.Sender] = None
-        self._sender: Optional[proton.Sender] = ''
+        self._sender: Optional[proton.Sender] = ' '
 
         self._to_schedule: list[Messenger] = []
 
