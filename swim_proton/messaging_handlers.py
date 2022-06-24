@@ -206,7 +206,9 @@ class Producer(PubSubMessagingHandler):
         PubSubMessagingHandler.__init__(self, connector)
 
         self.endpoint: str = '/exchange/amq.topic'
-        self._sender: Optional[proton.Sender] = None
+        # self._sender: Optional[proton.Sender] = None
+        self._sender: Optional[proton.Sender] = ''
+
         self._to_schedule: list[Messenger] = []
 
     def _create_sender_link(self, endpoint: str) -> Optional[proton.Sender]:
