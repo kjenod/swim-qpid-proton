@@ -236,7 +236,7 @@ class Producer(PubSubMessagingHandler):
             return
 
         self._sender = self._create_sender_link(self.endpoint)
-
+        print ("-----------------self._sender ", self._sender )
         if not self._sender:
             return
 
