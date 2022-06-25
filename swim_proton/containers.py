@@ -75,6 +75,7 @@ class PubSubContainer:
 
         _logger.info('Starting container')
         self._container = Container(self.messaging_handler)
+        print("---------- self._container ",self._container )
         self._container.run()
 
     def _countdown(self, timeout: int):
@@ -123,6 +124,10 @@ class PubSubContainer:
         :param threaded:
         :return:
         """
+        print("------------- self ", self)
+        print("------------- threaded ", threaded)
+        print("------------- timeout ",timeout)
+        
         if self.thread_is_running():
             return
 
