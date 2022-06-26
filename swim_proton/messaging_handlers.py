@@ -48,8 +48,6 @@ _logger = logging.getLogger(__name__)
 class ScheduledTask(MessagingHandler):
 
     def __init__(self, task: Callable, interval_in_sec: int):
-        print("----- 1 ----- ScheduledTask " )
-
         """
         It inherits from `proton.MessagingHandler` in order to take advantage of its event
         scheduling functionality
@@ -63,8 +61,6 @@ class ScheduledTask(MessagingHandler):
         self.interval_in_sec = interval_in_sec
 
     def on_timer_task(self, event: proton.Event):
-            print("----- 2 ----- ScheduledTask " )
-
         """
         Is triggered upon a scheduled action. The first scheduling will be done by the broker
         handler and then the topic will be re-scheduling itself
@@ -81,8 +77,6 @@ class ScheduledTask(MessagingHandler):
 class PubSubMessagingHandler(MessagingHandler):
 
     def __init__(self, connector: Connector) -> None:
-            print("----- 3 ----- ScheduledTask " )
-
         """
         Base class acting a MessagingHandler to a `proton.Container`. Any custom handler should
         inherit from this class.
@@ -101,8 +95,6 @@ class PubSubMessagingHandler(MessagingHandler):
         return self.container is not None and self.connection is not None
 
     def connect(self, container):
-            print("----- 4 ----- ScheduledTask " )
-
         _logger.info(f'Connecting to {self.connector.url}')
         self.container = container
         try:
@@ -111,8 +103,6 @@ class PubSubMessagingHandler(MessagingHandler):
             _logger.error(f"Failed to connect to {self.connector.url}: {str(e)}")
 
     def on_start(self, event: proton.Event):
-            print("----- 5 ----- ScheduledTask " )
-
         """
         Is triggered upon running the `proton.Container` that uses this handler. It creates a
         connection to the broker and can be overridden for further startup functionality.
@@ -132,8 +122,6 @@ class PubSubMessagingHandler(MessagingHandler):
                sasl_password: Optional[str] = None,
                allowed_mechs: Optional[str] = 'PLAIN',
                **kwargs):
-                       print("----- 6 ----- ScheduledTask " )
-
         """
 
         :param host:
@@ -169,8 +157,6 @@ class PubSubMessagingHandler(MessagingHandler):
 
     @classmethod
     def create_from_config(cls, config: ConfigDict):
-            print("----- 7 ----- ScheduledTask " )
-
         """
         Factory method for creating an instance from config values
 
@@ -189,14 +175,10 @@ class Messenger:
     after_send: Optional[List[Callable]] = None
 
     def __post_init__(self):
-            print("----- 8 ----- ScheduledTask " )
-
         if self.after_send is None:
             self.after_send = []
 
     def get_message(self, context: Optional[Any]) -> Optional[proton.Message]:
-            print("----- 9 ----- ScheduledTask " )
-
         try:
             message = self.message_producer(context=context)
 
@@ -214,8 +196,6 @@ class Messenger:
 class Producer(PubSubMessagingHandler):
 
     def __init__(self, connector: Connector) -> None:
-            print("----- 10 ----- ScheduledTask " )
-
         """
         An implementation of a broker handler that is supposed to act as a publisher. It keeps a
         list of message producers which will generate respective messages which will be routed in
@@ -227,16 +207,12 @@ class Producer(PubSubMessagingHandler):
 
         self.endpoint: str = '/exchange/amq.topic'
         self._sender: Optional[proton.Sender] = None
-
         self._to_schedule: list[Messenger] = []
 
     def _create_sender_link(self, endpoint: str) -> Optional[proton.Sender]:
-            print("----- 11 ----- ScheduledTask " )
-
         try:
-            print ("-----------------End point ", endpoint )
-#            self.container.create_sender(self.connection, endpoint)
-            self.container.create_sender(self.connection, '/exchange/amq.topic')
+            self.container.create_sender(self.connection, endpoint)
+            _logger.debug(f"--------------------- self.connection = {self.connection}")
             _logger.debug(f"Created sender on endpoint {self.endpoint}")
         except Exception as e:
             _logger.error(f'Failed to create sender on endpoint {self.endpoint}: {str(e)}')
@@ -245,8 +221,6 @@ class Producer(PubSubMessagingHandler):
         return sender
 
     def on_start(self, event: proton.Event) -> None:
-            print("----- 12 ----- ScheduledTask " )
-
         """
         Is triggered upon running the `proton.Container` that uses this handler.
         If it has ScheduledMessageProducers items in its list they will be initialized and
@@ -257,13 +231,14 @@ class Producer(PubSubMessagingHandler):
         # call the parent event handler first to take care of the connection with the broker
         super().on_start(event)
 
-       print ("-----------------self.connection: ", self.connection: )
- 
         if not self.connection:
             return
 
-       self._sender = self._create_sender_link(self.endpoint)
-         if not self._sender:
+         self._sender = self._create_sender_link(self.endpoint)
+       _logger.debug(f"--------------------- self.endpoint = {self.endpoint}")
+       _logger.debug(f"--------------------- self._sender = {self._sender}")
+
+        if not self._sender:
             return
 
         while self._to_schedule:
@@ -280,8 +255,6 @@ class Producer(PubSubMessagingHandler):
             self._to_schedule.append(messenger)
 
     def trigger_messenger(self, messenger: Messenger, context: Optional[Any] = None) -> None:
-            print("----- 13 ----- ScheduledTask " )
-
         """
         Generates a message via the messenger.message_producer and sends it in the broker.
 
@@ -309,8 +282,6 @@ class Producer(PubSubMessagingHandler):
                                       "{messenger.id}")
 
     def _schedule_messenger(self, messenger: Messenger):
-            print("----- 14 ----- ScheduledTask " )
-
         task = ScheduledTask(
             task=lambda: self.trigger_messenger(messenger=messenger),
             interval_in_sec=messenger.interval_in_sec
@@ -318,8 +289,6 @@ class Producer(PubSubMessagingHandler):
         self.container.schedule(task.interval_in_sec, task)
 
     def _send_message(self, message: proton.Message) -> None:
-            print("----- 15 ----- ScheduledTask " )
-
         """
         Sends the provided message via the broker.
 
@@ -345,8 +314,6 @@ class Producer(PubSubMessagingHandler):
                sasl_password: Optional[str] = None,
                allowed_mechs: Optional[str] = 'PLAIN',
                **kwargs):
-                       print("----- 16 ----- ScheduledTask " )
-
 
         producer = super().create(host=host,
                                   cert_db=cert_db,
@@ -367,8 +334,6 @@ class Producer(PubSubMessagingHandler):
 class Consumer(PubSubMessagingHandler):
 
     def __init__(self, connector: Connector) -> None:
-            print("----- 17 ----- ScheduledTask " )
-
         """
         An implementation of a broker client that is supposed to act as subscriber.
         It subscribes to endpoints of the broker by creating instances of `proton.Receiver`
@@ -382,8 +347,6 @@ class Consumer(PubSubMessagingHandler):
         self.endpoints_registry: Dict[str, Tuple[Optional[proton.Receiver], Callable]] = {}
 
     def _create_receiver_link(self, endpoint: str) -> Optional[proton.Receiver]:
-            print("----- 18 ----- ScheduledTask " )
-
 
         try:
             receiver = self.container.create_receiver(self.connection, endpoint)
@@ -395,8 +358,6 @@ class Consumer(PubSubMessagingHandler):
         return receiver
 
     def _get_endpoint_reg_by_receiver(self, receiver: proton.Receiver) -> Tuple[str, Callable]:
-            print("----- 19 ----- ScheduledTask " )
-
         """
         Find the endpoint and message_consumer that corresponds to the given receiver.
         :param receiver:
@@ -407,8 +368,6 @@ class Consumer(PubSubMessagingHandler):
                 return endpoint, message_consumer
 
     def on_start(self, event: proton.Event) -> None:
-            print("----- 20 ----- ScheduledTask " )
-
         """
         Is triggered upon running the `proton.Container` that uses this handler.
         It checks if there are endpoints without a receiver attached to them and creates them
@@ -428,8 +387,6 @@ class Consumer(PubSubMessagingHandler):
                     self.endpoints_registry[endpoint] = (receiver, message_consumer)
 
     def attach_message_consumer(self, endpoint: str, message_consumer: Callable) -> None:
-            print("----- 21 ----- ScheduledTask " )
-
         """
         Creates a new `proton.Receiver` and assigns the message consumer to it
 
@@ -444,8 +401,6 @@ class Consumer(PubSubMessagingHandler):
                 self.endpoints_registry[endpoint] = (receiver, message_consumer)
 
     def detach_message_consumer(self, endpoint: str) -> None:
-            print("----- 22 ----- ScheduledTask " )
-
         """
         Removes the receiver that corresponds to the given endpoint.
 
@@ -458,8 +413,6 @@ class Consumer(PubSubMessagingHandler):
             _logger.debug(f"Closed receiver {receiver} on endpoint {endpoint}")
 
     def on_message(self, event: proton.Event) -> None:
-            print("----- 23 ----- ScheduledTask " )
-
         """
         Is triggered upon reception of messages via the broker.
 
