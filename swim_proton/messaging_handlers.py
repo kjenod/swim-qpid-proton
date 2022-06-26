@@ -233,10 +233,11 @@ class Producer(PubSubMessagingHandler):
         # call the parent event handler first to take care of the connection with the broker
         super().on_start(event)
 
+       print ("-----------------self.connection: ", self.connection: )
+ 
         if not self.connection:
             return
 
-        print ("-----------------self.connection: ", self.connection: )
        self._sender = self._create_sender_link(self.endpoint)
          if not self._sender:
             return
