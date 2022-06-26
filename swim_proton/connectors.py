@@ -39,8 +39,6 @@ class Connector:
     protocol = 'amqp'
 
     def __init__(self, host: str) -> None:
-           print("----- 1 ----- def __init__(self, host: str) -> None: " )
-
         """
         Handles the connection to a broker without authentication
         :param host:
@@ -52,8 +50,6 @@ class Connector:
 
     @property
     def url(self):
-           print("----- 2 ----- def url(self): " )
-
         if self.host.startswith('amqp'):
             return self.host
 
@@ -68,8 +64,6 @@ class TLSConnector(Connector):
 
     def __init__(self, host: str, cert_db: str, cert_file: str, cert_key: str, cert_password: str) \
             -> None:
-            print("----- 3 ----- def __init__(self, host: str, cert_db: str, cert_file: str, cert_key: str, cert_password: str) " )
-           
         """
         Handles the connection to a broker via the TSL layer
         :param host:
@@ -86,13 +80,11 @@ class TLSConnector(Connector):
         self.cert_password = cert_password
 
     def connect(self, container: Container) -> proton.Connection:
-    print("----- 4 ----- connect(self, container: Container) " )
         container = self._prepare_container(container)
 
         return container.connect(self.url)
 
     def _prepare_container(self, container: Container) -> Container:
-    print("----- 5 ----- def _prepare_container(self, container: Container)  " )
         container.ssl.client.set_trusted_ca_db(self.cert_db)
         container.ssl.client.set_peer_authentication(SSLDomain.VERIFY_PEER)
         container.ssl.client.set_credentials(self.cert_file,
@@ -106,8 +98,6 @@ class SASLConnector(Connector):
     protocol = 'amqps'
 
     def __init__(self, host, user: str, password: str, cert_db: str, allowed_mechs: str) -> None:
-        print("----- 6 ----- __init__(self, host, user: str, password: str, cert_db: str, allowed_mechs: str)  " )
-
         """
         Handles the connection to a broker via the SASL layer
 
@@ -124,15 +114,12 @@ class SASLConnector(Connector):
         self.allowed_mechs = allowed_mechs
 
     def _prepare_container(self, container: Container) -> Container:
-    print("----- 7 ----- _prepare_container(self, container: Container)  " )
         container.ssl.client.set_trusted_ca_db(self.cert_db)
         container.ssl.client.set_peer_authentication(SSLDomain.VERIFY_PEER)
 
         return container
 
     def connect(self, container: Container) -> proton.Connection:
-        print("----- 8 ----- connect(self, container: Container) " )
-
         container = self._prepare_container(container)
 
         return container.connect(self.url,
