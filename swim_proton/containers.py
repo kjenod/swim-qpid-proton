@@ -46,6 +46,7 @@ _logger = logging.getLogger(__name__)
 class PubSubContainer:
 
     def __init__(self, messaging_handler: PubSubMessagingHandler):
+    print("----- 1 ----- PubSubContainer " )
         """
         Wraps up a proton.reactor.Container and enables run in thread mode
         :param messaging_handler:
@@ -56,6 +57,8 @@ class PubSubContainer:
         self._container: Optional[Container] = None
 
     def thread_is_running(self):
+        print("----- 2 ----- PubSubContainer " )
+
         """
         Determines whether the container is running by checking the handler and the underlying
         thread if it's running in threaded mode.
@@ -64,9 +67,13 @@ class PubSubContainer:
         return self._thread and self._thread.is_alive()
 
     def is_connected(self):
+        print("----- 3 ----- PubSubContainer " )
+
         return self.messaging_handler.is_connected()
 
     def _run(self, timeout: Optional[int] = None):
+        print("----- 4 ----- PubSubContainer " )
+
         """
         The actual runner
         """
@@ -78,6 +85,8 @@ class PubSubContainer:
         self._container.run()
 
     def _countdown(self, timeout: int):
+        print("----- 5 ----- PubSubContainer " )
+
         """
         Counts down `timeout` seconds before it attempts to stop the container if it's running
         """
@@ -96,6 +105,8 @@ class PubSubContainer:
             self.stop()
 
     def _spawn_run_thread(self, timeout: Optional[int] = None):
+        print("----- 6 ----- PubSubContainer " )
+
         """
         Spawns the container in threaded mode
         :param timeout:
@@ -108,6 +119,8 @@ class PubSubContainer:
         self._thread.start()
 
     def _spawn_countdown_thread(self, timeout: int):
+        print("----- 7 ----- PubSubContainer " )
+
         """
         Spawns the countdown thread.
         :param timeout
@@ -117,6 +130,8 @@ class PubSubContainer:
         self._thread.start()
 
     def run(self, threaded: bool = False, timeout: Optional[int] = None):
+        print("----- 8 ----- PubSubContainer " )
+
         """
         Runs the container in threaded or not mode
         :param timeout:
@@ -133,6 +148,8 @@ class PubSubContainer:
             self._run(timeout=timeout)
 
     def stop(self):
+        print("----- 9 ----- PubSubContainer " )
+
         """
 
         """
@@ -142,6 +159,8 @@ class PubSubContainer:
 
     @classmethod
     def _create_from_config(cls, config: ConfigDict, messaging_handler_class: Type[PubSubMessagingHandler]):
+        print("----- 10 ----- PubSubContainer " )
+
         messaging_handler = messaging_handler_class.create_from_config(config)
         container = cls(messaging_handler=messaging_handler)
         container.config = config
@@ -152,6 +171,8 @@ class PubSubContainer:
 class ProducerContainer(PubSubContainer):
 
     def __init__(self, messaging_handler: Producer):
+        print("----- 11 ----- PubSubContainer " )
+
         """
         Container to be using the Producer messaging handler out of the box
 
@@ -166,12 +187,16 @@ class ProducerContainer(PubSubContainer):
     def create_from_config(cls,
                            config: ConfigDict,
                            messaging_handler_class: Type[PubSubMessagingHandler] = Producer):
+                               print("----- 12 ----- PubSubContainer " )
+
         return cls._create_from_config(config, messaging_handler_class)
 
 
 class ConsumerContainer(PubSubContainer):
 
     def __init__(self, messaging_handler: Consumer):
+        print("----- 13 ----- PubSubContainer " )
+
         """
         Container to be using the Consumer messaging handler out of the box
 
@@ -186,4 +211,6 @@ class ConsumerContainer(PubSubContainer):
     def create_from_config(cls,
                            config: ConfigDict,
                            messaging_handler_class: Type[PubSubMessagingHandler] = Consumer):
+                               print("----- 14 ----- PubSubContainer " )
+
         return cls._create_from_config(config, messaging_handler_class)
