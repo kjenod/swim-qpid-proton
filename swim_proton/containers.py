@@ -46,7 +46,6 @@ _logger = logging.getLogger(__name__)
 class PubSubContainer:
 
     def __init__(self, messaging_handler: PubSubMessagingHandler):
-    print("----- 1 ----- PubSubContainer " )
         """
         Wraps up a proton.reactor.Container and enables run in thread mode
         :param messaging_handler:
@@ -55,6 +54,7 @@ class PubSubContainer:
         self.config: Optional[ConfigDict] = None
         self._thread: Optional[threading.Thread] = None
         self._container: Optional[Container] = None
+    print("----- 1 ----- PubSubContainer " )
 
     def thread_is_running(self):
         print("----- 2 ----- PubSubContainer " )
