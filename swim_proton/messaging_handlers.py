@@ -234,9 +234,9 @@ class Producer(PubSubMessagingHandler):
         if not self.connection:
             return
 
-         self._sender = self._create_sender_link(self.endpoint)
        _logger.debug(f"--------------------- self.endpoint = {self.endpoint}")
        _logger.debug(f"--------------------- self._sender = {self._sender}")
+         self._sender = self._create_sender_link(self.endpoint)
 
         if not self._sender:
             return
