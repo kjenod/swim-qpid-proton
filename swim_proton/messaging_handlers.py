@@ -236,7 +236,7 @@ class Producer(PubSubMessagingHandler):
 
         #_logger.debug(f"Call created sender on endpoint {self.endpoint}")
         self._sender = self._create_sender_link(self.endpoint)
-
+ 
         if not self._sender:
             return
 
