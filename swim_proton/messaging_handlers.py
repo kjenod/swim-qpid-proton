@@ -211,13 +211,13 @@ class Producer(PubSubMessagingHandler):
 
     def _create_sender_link(self, endpoint: str) -> Optional[proton.Sender]:
         try:
-        self.container.create_sender(self.connection, endpoint)
-        _logger.debug(f"Created sender on endpoint {self.endpoint}")
+            self.container.create_sender(self.connection, endpoint)
+            _logger.debug(f"Created sender on endpoint {self.endpoint}")
         except Exception as e:
-        if not sender:
-           sender = None
-           _logger.error(f'Failed to create sender on endpoint {self.endpoint}: {str(e)}')
-	return sender
+            _logger.error(f'Failed to create sender on endpoint {self.endpoint}: {str(e)}')
+            sender = None
+
+        return sender
 
     def on_start(self, event: proton.Event) -> None:
         """
@@ -232,10 +232,11 @@ class Producer(PubSubMessagingHandler):
 
         if not self.connection:
             return
-
-        #_logger.debug(f"Call created sender on endpoint {self.endpoint}")
+        _logger.debug(f"----- self.connection ",self.connection)
+        _logger.debug(f"----- event ",  event)
+        _logger.debug(f"----- self ",  self)
         self._sender = self._create_sender_link(self.endpoint)
- 
+
         if not self._sender:
             return
 
